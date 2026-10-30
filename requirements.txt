@@ -1,0 +1,1 @@
+# Esqueleto M1: apenas biblioteca padrão (sem dependências externas).
