@@ -20,6 +20,8 @@
 ### Onda 0 — Validação (2–4 semanas, custo quase zero)
 Uma página simples com 3 temas vivos + boletim semanal. Objetivo: testar se o formato (selo + índice + provas) é entendido e compartilhado. Métrica de saída: taxa de compartilhamento e retorno de leitores, não volume.
 
+**Status 30/10/2026 — APROVADA:** formato validado na demonstração (v3 — identidade própria, 4 áreas numeradas, imagens dos assuntos, mensagens de canal simplificadas em foto + resumo + link). Ajustes pontuais ficam para depois. A validação com público real segue pendente e pode rodar em paralelo ao MVP. Plano de execução do MVP em `09-plano-onda-1.md`.
+
 ### Onda 1 — MVP (2–3 meses)
 Portal com todas as editorias nacionais (`04-cobertura-mvp.md`), pipeline completo, distribuição para X, Instagram e canal de WhatsApp. Começa com foco reforçado em boatos reciclados, números oficiais e citações — onde a taxa de acerto é mais alta.
 
