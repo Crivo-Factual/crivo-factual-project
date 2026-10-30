@@ -25,6 +25,7 @@
 | `07-confianca-riscos-legais.md` | Metodologia pública, correções, direito de resposta, lei eleitoral |
 | `08-stack-fases-metricas.md` | Stack sugerida, ondas de expansão, esforço estimado, métricas de sucesso |
 | `09-plano-onda-1.md` | Plano de execução do MVP (escopo, marcos M1–M4, critérios de saída, decisões pendentes) |
+| `10-versao-gratuita.md` | O que fica dentro e fora de uma versão com R$ 0/mês (decisão de arquitetura free-first) |
 
 ## Resumo em uma frase
 
