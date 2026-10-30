@@ -39,7 +39,7 @@ Disparo para X, Instagram e canal de WhatsApp no formato simplificado validado (
 
 ## Decisões que só o idealizador pode tomar (travam o M1/M4)
 
-1. **Orçamento de APIs:** a API do X para busca é paga e o modelo de linguagem cobra por volume. Sem um teto mensal, o desenho precisa começar por fontes gratuitas (RSS, dados abertos) e deixar a busca no X para depois.
+1. **Orçamento de APIs:** a API do X para busca é paga e o modelo de linguagem cobra por volume. Sem um teto mensal, o desenho precisa começar por fontes gratuitas (RSS, dados abertos) e deixar a busca no X para depois. **Decidido 30/10/2026: sem previsão de orçamento — arquitetura free-first, detalhada em `10-versao-gratuita.md`.**
 2. **Contas business:** canal de WhatsApp exige WhatsApp Business API e o Instagram exige conta empresarial no Graph API. São cadastros do idealizador, não automatizáveis daqui.
 3. **Hospedagem:** páginas estáticas são baratas em qualquer lugar; o PostgreSQL do banco de fatos define o custo fixo mensal. Escolher provedor antes do M2.
 4. **Domínio e @:** confirmar `crivofactual.com.br` (usado como modelo nos links do demo) e os @ no Instagram e no X antes do lançamento — sem isso, os links das mensagens não apontam para lugar nenhum.
