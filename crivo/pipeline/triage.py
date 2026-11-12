@@ -38,10 +38,10 @@ KEYWORDS = [
 # checagem — vão para o fim da fila.
 LISTING_SOURCES = {"camara_proposicoes", "senado_tramitando"}
 
-# Título que é só a referência ("PL 05827/2026") ou quase só ela.
+# Título que é só a referência ("PL 05827/2026", "PL 1.454/2021") ou quase só ela.
 BARE_REF = re.compile(
     r"^\s*(?:PL|PLS|PEC|MPV|PLP|PDC|PDS|RQS|REQ|MSG|VET|MSF|PRS|PLC|RIC|MSC|PAR|EMC|SBT)"
-    r"\s*\d+/\d{4}\s*[-–—:.]?\s*$",
+    r"\s*(?:\d{1,3}(?:\.\d{3})+|\d+)/\d{4}\s*[-–—:.]?\s*$",
     re.IGNORECASE,
 )
 
