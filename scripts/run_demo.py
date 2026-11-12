@@ -9,7 +9,13 @@ Uso: python3 scripts/run_demo.py
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime, timezone
+
+# A demo usa um banco temporário: nunca apaga a fila ao vivo (crivo.db).
+os.environ.setdefault(
+    "CRIVO_DB_PATH", os.path.join(tempfile.gettempdir(), "crivo-demo.db")
+)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
