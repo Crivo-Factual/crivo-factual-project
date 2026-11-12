@@ -1,7 +1,9 @@
 """Extração por regras (etapa 3 do pipeline, camada gratuita).
 
 Encontra candidatos a alegações verificáveis sem modelo de linguagem:
-números, valores em reais, percentuais, datas e trechos entre aspas.
+números, valores em reais, percentuais, datas, trechos entre aspas e
+referências a proposições (PL, PEC, MPV etc.). Uma referência a
+proposição é verificável: ela pode ser conferida no registro oficial.
 Os candidatos ainda precisam de evidência (etapas 4 e 5); extração
 não é veredito.
 """
@@ -12,6 +14,9 @@ MONEY = re.compile(r"R\$\s?[\d\.\,]+(?:\s?(?:mil|milhões|bilhões))?")
 PERCENT = re.compile(r"\d+(?:[,\.]\d+)?\s?%")
 DATE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
 QUOTE = re.compile(r'"([^"]{10,200})"')
+PROPOSITION = re.compile(
+    r"\b(?:PL|PLS|PEC|MPV|PLP|PDC|PDS|RQS|REQ|MSG|VET|MSF|PRS|PLC)\s*\d+/\d{4}\b"
+)
 
 
 def extract_candidates(text):
@@ -33,4 +38,6 @@ def extract_candidates(text):
         add("data", m.group(0))
     for m in QUOTE.finditer(text or ""):
         add("citação", m.group(1))
+    for m in PROPOSITION.finditer(text or ""):
+        add("proposição", m.group(0))
     return found
