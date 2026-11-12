@@ -42,6 +42,37 @@ data/examples.json     # 3 análises documentadas (Bolsa Família, cortes, 6x1)
 tests/test_verdict.py  # testes do motor de veredito
 ```
 
+O endpoint de matérias em tramitação do Senado devolve milhares de
+itens, incluindo alguns de décadas atrás; o coletor ordena por data de
+apresentação e o teto de 50 por fonte fica com os mais recentes. Itens
+antigos sem palavra-chave nem recência ficam no fim da fila pelo score.
+Registros sem nenhum conteúdo (só o identificador, sem ementa) são
+descartados pela triagem — não há o que verificar neles.
+
+Pendentes de verificação: IBGE (instável a partir desta VM, retestar),
+Agência Brasil e Câmara por RSS (URLs testadas retornam 404), TSE e
+DOU (sem endpoint público verificado).
+
+## Coleta (M2)
+
+Fontes registradas em `data/sources.json`, verificadas ao vivo em
+12/11/2026 (G1, Senado Notícias e Poder360 por RSS; proposições da
+Câmara e matérias em tramitação do Senado por dados abertos). Nenhuma
+exige chave.
+
+```bash
+python3 scripts/run_collectors.py            # uma passada
+python3 scripts/run_collectors.py --loop 900 # repete a cada 15 min
+```
+
+A coleta alimenta a fila persistente (`queue` no SQLite): cada item
+recebe score de triagem e só o verificável entra (tem link ou traz
+número, data ou citação no título/resumo). Duplicatas são descartadas
+por hash de conteúdo. Falha de uma fonte não derruba as demais. A fila
+tem teto de 500 pendentes (backpressure) e retry com backoff
+exponencial (1, 2, 4, 8 e 16 minutos, teto de 1h; após 5 tentativas o
+item fica `failed`).
+
 ## Regras do esqueleto
 
 - Nenhum segredo no código. Chaves futuras entram por `.env`
