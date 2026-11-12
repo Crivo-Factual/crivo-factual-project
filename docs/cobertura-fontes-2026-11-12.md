@@ -84,3 +84,18 @@ a fonte precisa. O próximo passo de maior impacto é corrigir a
 extração (manter a referência na alegação, responder em pt-BR, limpar
 HTML), seguido da triagem. O aceite da #47 (<50% inconclusivos) é
 inalcançável nesse mix de feed, qualquer que seja o número de fontes.
+
+## Pós-correção da extração (12/11/2026)
+
+- Lixo (HTML/URL) nas alegações: **0** na rodada pós-correção
+  (era 12%). Inglês: **0** (era maioria das alegações do LLM).
+- Teste dirigido (EMC 1/2026, item q271): 3 alegações em pt-BR com a
+  referência; veredito Predominantemente verdadeiro (75%) — a
+  referência confirmou por existência; as 3 alegações de conteúdo
+  ficaram sem evidência porque a API devolve 5 registros diferentes
+  para "EMC 1/2026" e o cliente usa o primeiro (ver DEVELOPMENT.md,
+  seção #47 — desambiguação por ementa pendente).
+- Efeito colateral correto: 5 de 10 itens da rodada saíram como Sem
+  índice — os resumos eram só uma tag `<img>`; antes geravam páginas
+  Inconclusivo com alegações lixo. Itens sem conteúdo real agora
+  saem da fila como fora de escopo, sem página.
