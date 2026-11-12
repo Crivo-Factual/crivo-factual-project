@@ -288,10 +288,19 @@ json_validate_failed, queda de conexão) com espera crescente,
 preserva o POST no redirect, corta o prompt em 4.000 chars no fim
 de palavra — e mesmo assim o LLM devolve [] para q149/q311/q313.
 Quando o LLM falha, o pipeline segue só com regras (desenho
-conservador): a central cai no primeiro candidato. Próximo caminho:
-uma fonte primária para afirmações sem ref (ex.: o próprio texto
-da matéria como evidência fraca) ou aceitar o Inconclusivo como
-resposta correta para notícia sem ref.
+conservador): a central cai no primeiro candidato.
+
+Decisão do idealizador (12/11/2026): **Inconclusivo é a resposta
+correta para notícia sem referência.** O aceite da #47 foi
+reescrito: não "inconclusivos abaixo de 50% no geral" (inalcançável
+no mix de feed — notícia de crime/local não tem fonte primária),
+mas "prova como maioria entre os itens COM referência" e "zero
+falsas confirmações". Medido no dia (113 itens com veredito): **com
+ref, 23 de 26 com prova (88%); sem ref, 87 de 87 Inconclusivo
+(100%), 0 com prova.** Issue #47 fechada com esse aceite
+reframado. A Onda 1 segue aberta nos critérios restantes
+(viralização = proxy, sem API paga do X; taxa de correção ainda
+não mensurável, 0 correções).
 
 Avaliado e adiado: DOU não tem API pública de consulta (só portal
 web e WS-INCom de publicação); IBGE/SIDRA responde, mas falta o mapa
