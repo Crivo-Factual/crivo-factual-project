@@ -36,6 +36,20 @@ PROPOSITION_RE = re.compile(
     r"\s*(\d+)/(\d{4})\b"
 )
 
+# Tipos numerados por proposição, não por ano: o mesmo "EMC 1/2026"
+# existe em centenas de proposições diferentes (132 só na Câmara em
+# 12/11/2026). A referência sozinha não identifica o registro — um
+# status lido do primeiro registro pode ser de outra proposição. Para
+# esses tipos, o status só vale do registro cuja ementa casa com a
+# alegação; sem ementa que case, o status não é atribuível.
+AMBIGUOUS_TYPES = ("EMC", "PAR", "SBT")
+
+# Páginas de 100 na consulta à Câmara (o teto da API); até 3 páginas
+# por referência. EMC 1/2026 tem 132 registros — o certo estava na
+# página 2. Sem paginar, a desambiguação por ementa não o alcançaria.
+CAMARA_PAGE_SIZE = 100
+CAMARA_MAX_PAGES = 3
+
 # Ordem importa: o primeiro radical encontrado decide o status afirmado.
 STATUS_WORDS = (
     ("transformad", "transformada em norma"),
@@ -53,10 +67,11 @@ FEDERAL_WORDS = ("camara", "senado", "congresso", "federal", "deputados", "senad
 USER_AGENT = "CrivoFactual/0.1"
 
 
-def camara_search_url(sigla, numero, ano):
+def camara_search_url(sigla, numero, ano, pagina=1):
     return (
         "https://dadosabertos.camara.leg.br/api/v2/proposicoes"
-        f"?siglaTipo={sigla}&numero={numero}&ano={ano}&itens=5"
+        f"?siglaTipo={sigla}&numero={numero}&ano={ano}"
+        f"&itens={CAMARA_PAGE_SIZE}&pagina={pagina}"
     )
 
 
@@ -76,19 +91,8 @@ class CamaraClient:
     def __init__(self, fetcher=None):
         self._fetch = fetcher or _fetch
 
-    def search(self, sigla, numero, ano):
-        """Devolve o registro oficial ou None (não encontrada)."""
-        url = camara_search_url(sigla, numero, ano)
-        try:
-            data = json.loads(self._fetch(url).decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            if exc.code == 404:
-                return None
-            raise
-        dados = data.get("dados", [])
-        if not dados:
-            return None
-        p = dados[0]
+    @staticmethod
+    def _to_record(p, url):
         st = p.get("statusProposicao") or {}
         return {
             "house": "Câmara dos Deputados",
@@ -99,6 +103,35 @@ class CamaraClient:
             "tramitando": None,
             "search_url": url,
         }
+
+    def search_all(self, sigla, numero, ano):
+        """Devolve todos os registros oficiais (até CAMARA_MAX_PAGES).
+
+        Tipos ambíguos (EMC/PAR/SBT) devolvem dezenas ou centenas de
+        registros com a mesma sigla+número+ano; o primeiro da lista é
+        arbitrário. A desambiguação acontece no Searcher, pela ementa.
+        """
+        records = []
+        for pagina in range(1, CAMARA_MAX_PAGES + 1):
+            url = camara_search_url(sigla, numero, ano, pagina)
+            try:
+                data = json.loads(self._fetch(url).decode("utf-8"))
+            except urllib.error.HTTPError as exc:
+                if exc.code == 404:
+                    break
+                raise
+            records.extend(
+                self._to_record(p, url) for p in data.get("dados", [])
+            )
+            links = {l.get("rel"): l.get("href") for l in data.get("links", [])}
+            if "next" not in links:
+                break
+        return records
+
+    def search(self, sigla, numero, ano):
+        """Devolve o primeiro registro oficial ou None (não encontrada)."""
+        records = self.search_all(sigla, numero, ano)
+        return records[0] if records else None
 
 
 class SenadoClient:
@@ -201,7 +234,15 @@ def _status_outcome(claim_status, situacao, tramitando):
 def _ementa_matches(text, ref_match, ementa):
     """A alegação (sem a referência) está contida na ementa oficial?"""
     rest = normalize(text[:ref_match.start()] + " " + text[ref_match.end():])
-    if len(rest) < 20:
+    # O artigo que acompanhava a referência ("O PL ... institui") é
+    # cola gramatical, não conteúdo: sem tirá-lo, a contenção falha
+    # mesmo quando o resto é verbatim da ementa (caso real q271).
+    while True:
+        stripped = re.sub(r"^(o|a|os|as|que|e)\s+", "", rest)
+        if stripped == rest:
+            break
+        rest = stripped
+    if len(rest) < 20 and not _detect_status(text):
         return True  # a alegação é basicamente a referência
     return rest in normalize(ementa)
 
@@ -215,22 +256,53 @@ class Searcher:
         self._cache = {}
 
     def _lookup(self, sigla, numero, ano):
+        """Devolve (registros, casas consultadas). A Câmara pode devolver
+        vários registros para a mesma referência (tipos ambíguos); o
+        Senado devolve no máximo um. O cache é por referência."""
         key = (sigla, numero, ano)
         if key in self._cache:
             return self._cache[key]
-        record = None
+        records = []
         consulted = 0
         for client in (self.camara, self.senado):
             try:
-                record = client.search(sigla, numero, ano)
+                if isinstance(client, CamaraClient):
+                    found = client.search_all(sigla, numero, ano)
+                else:
+                    rec = client.search(sigla, numero, ano)
+                    found = [rec] if rec else []
                 consulted += 1
             except Exception:  # noqa: BLE001 - casa indisponível, tenta a outra
                 continue
-            if record:
+            records.extend(found)
+            if records:
                 break
-        result = (record, consulted)
+        result = (records, consulted)
         self._cache[key] = result
         return result
+
+    def _match_by_ementa(self, text, ref, records):
+        """Primeiro registro cuja ementa casa com a alegação (ou None)."""
+        for record in records:
+            if _ementa_matches(text, ref, record["ementa"]):
+                return record
+        return None
+
+    def _identify_record(self, text, records):
+        """Registro cuja ementa aparece na alegação (ou None).
+
+        Usado só para identificar QUAL registro de um tipo ambíguo a
+        alegação trata, antes de ler o status dele: a alegação cita a
+        ementa e afirma um status, então a contenção é reversa (a
+        ementa está na alegação, não o contrário). Ementa curta demais
+        não identifica nada.
+        """
+        tx = normalize(text)
+        for record in records:
+            em = normalize(record["ementa"])
+            if len(em) >= 20 and (em in tx or em[:80] in tx):
+                return record
+        return None
 
     def search_claim(self, text):
         """Busca evidência primária para a alegação. Devolve a evidência
@@ -240,8 +312,8 @@ class Searcher:
             return None
         sigla, numero, ano = ref.group(1), ref.group(2), ref.group(3)
         claim_status = _detect_status(text)
-        record, consulted = self._lookup(sigla, numero, ano)
-        if record is None:
+        records, consulted = self._lookup(sigla, numero, ano)
+        if not records:
             if consulted == 2 and claim_status and _is_federal(text):
                 return {
                     "status": "contraditada",
@@ -254,6 +326,15 @@ class Searcher:
                 }
             return None
         if claim_status:
+            # Tipo ambíguo: o status só vale do registro cuja ementa a
+            # alegação cita — o primeiro da lista pode ser outra
+            # proposição. Tipo único: o registro é o da referência.
+            if sigla in AMBIGUOUS_TYPES:
+                record = self._identify_record(text, records)
+                if record is None:
+                    return None  # status sem registro identificável
+            else:
+                record = records[0]
             outcome = _status_outcome(
                 claim_status, record.get("situacao", ""), record.get("tramitando")
             )
@@ -268,7 +349,8 @@ class Searcher:
                     ),
                 }
             return None  # status não mapeável: nunca confirma só por existir
-        if _ementa_matches(text, ref, record["ementa"]):
+        record = self._match_by_ementa(text, ref, records)
+        if record is not None:
             return {
                 "status": "confirmada",
                 "source_name": record["source_name"],
