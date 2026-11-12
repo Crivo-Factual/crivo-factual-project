@@ -25,6 +25,28 @@ class TestExtraction(unittest.TestCase):
         self.assertEqual(cands[0]["kind"], "proposição")
         self.assertEqual(cands[0]["text"], "PLP 230/2025")
 
+    def test_html_e_removido_antes_de_extrair(self):
+        cands = extract_candidates("<p>Senado aprova PLP 230/2025</p> com 50% dos votos")
+        texts = [c["text"] for c in cands]
+        self.assertIn("PLP 230/2025", texts)
+        self.assertTrue(all("<" not in t and ">" not in t for t in texts))
+
+    def test_url_de_imagem_nao_vira_alegacao(self):
+        cands = extract_candidates(
+            'Notícia <img src="https://s2-g1.glbimg.com/abc123"> sobre o PL 1159/2026'
+        )
+        texts = [c["text"] for c in cands]
+        self.assertTrue(all("http" not in t for t in texts))
+        self.assertIn("PL 1159/2026", texts)
+
+    def test_atributo_src_nao_vira_citacao(self):
+        cands = extract_candidates(
+            '<img src="https://exemplo.com/foto.jpg" alt="texto da foto"> 70% aprovam'
+        )
+        texts = [c["text"] for c in cands]
+        self.assertNotIn("https://exemplo.com/foto.jpg", texts)
+        self.assertIn("70%", texts)
+
 
 if __name__ == "__main__":
     unittest.main()
