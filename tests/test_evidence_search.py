@@ -208,6 +208,32 @@ class TestEvidenceSearch(unittest.TestCase):
         r = s.search_claim("O PL 5832/2026 institui o Programa Primeiro Negócio")
         self.assertEqual(r["status"], "confirmada")
 
+    def test_numero_com_ponto_consulta_sem_ponto(self):
+        urls = []
+        def fetch(url):
+            urls.append(url)
+            return camara_fetch("Institui o Programa Primeiro Negócio")(url)
+        s = ev.Searcher(camara=ev.CamaraClient(fetch),
+                        senado=ev.SenadoClient(senado_fetch("x", found=False)))
+        r = s.search_claim("O PL 1.454/2021 institui o Programa Primeiro Negócio")
+        self.assertEqual(r["status"], "confirmada")
+        self.assertTrue(any("numero=1454" in u for u in urls), urls)
+        self.assertFalse(any("1.454" in u for u in urls), urls)
+
+    def test_ementa_do_senado_quando_a_da_camara_difere(self):
+        # A mesma proposição tem redações diferentes nas duas casas;
+        # a confirmação precisa testar as duas.
+        s = ev.Searcher(
+            camara=ev.CamaraClient(camara_fetch(
+                "Institui o Selo-Arte Café, a ser conferido ao produto obtido mediante o emprego de modo artesanal")),
+            senado=ev.SenadoClient(senado_fetch(
+                "Institui o selo Arte Café, a ser conferido ao café produzido e processado de modo artesanal")))
+        r = s.search_claim(
+            "PL 1.454/2023 — Institui o selo Arte Café, a ser conferido "
+            "ao café produzido e processado de modo artesanal.")
+        self.assertEqual(r["status"], "confirmada")
+        self.assertIn("Senado", r["source_name"])
+
 
 if __name__ == "__main__":
     unittest.main()
