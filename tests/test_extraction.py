@@ -55,6 +55,43 @@ class TestExtraction(unittest.TestCase):
         self.assertNotIn("https://exemplo.com/foto.jpg", texts)
         self.assertIn("70%", texts)
 
+    def test_ato_do_dou(self):
+        for text, expected in (
+            ("Lei nº 14.973, de 2024", "Lei nº 14.973, de 2024"),
+            ("EC 141/2026", "EC 141/2026"),
+            ("MP 1373", "MP 1373"),
+            ("Portaria MF Nº 545, de 2026", "Portaria MF Nº 545, de 2026"),
+            ("Decreto-Lei nº 2.848, de 1940", "Decreto-Lei nº 2.848, de 1940"),
+        ):
+            cands = extract_candidates(text)
+            self.assertEqual(len(cands), 1, text)
+            self.assertEqual(cands[0]["kind"], "ato", text)
+            self.assertEqual(cands[0]["text"], expected, text)
+
+    def test_ato_vem_depois_da_proposicao_e_antes_do_numero(self):
+        cands = extract_candidates("50% — PLP 230/2025 e Lei nº 14.973, de 2024")
+        self.assertEqual(
+            [c["kind"] for c in cands], ["proposição", "ato", "percentual"]
+        )
+
+    def test_mp3_nao_vira_ato(self):
+        self.assertEqual(extract_candidates("O arquivo MP3 toca no rádio"), [])
+
+    def test_lei_de_ano_nao_vira_ato(self):
+        self.assertEqual(extract_candidates("Lei de 2024"), [])
+
+    def test_fragmento_entre_aspas_nao_vira_citacao(self):
+        # O padrão de citação casa o texto entre o fechamento de uma
+        # aspa e a abertura da próxima: ", disse o secretário." não é
+        # citação (caso real q313).
+        cands = extract_candidates(
+            '"O governo vai cortar gastos", disse o secretário. "Vamos em frente."'
+        )
+        texts = [c["text"] for c in cands]
+        self.assertNotIn(", disse o secretário.", texts)
+        self.assertIn("O governo vai cortar gastos", texts)
+        self.assertIn("Vamos em frente.", texts)
+
 
 if __name__ == "__main__":
     unittest.main()
