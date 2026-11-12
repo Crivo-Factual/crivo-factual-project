@@ -150,15 +150,21 @@ itens da fila não traz proposição nem alegação extraível.
 Sonda de cobertura completa em `docs/cobertura-fontes-2026-11-12.md`
 (48 itens / 208 alegações): DOU, indicadores, votações e TSE cobrem
 0 — o problema é a alegação chegar sem a informação que a fonte
-precisa, não a falta de fontes. Limite encontrado no teste dirigido:
+precisa, não a falta de fontes. Desambiguação corrigida em 12/11/2026:
 **EMC, PAR e SBT não são identificadores únicos** — são numerados
-por proposição, e a API da Câmara devolve até 5 registros
-diferentes para o mesmo "EMC 1/2026"; o cliente usa o primeiro
-(`dados[0]`), então a confirmação por ementa falha quando o registro
-certo não é o primeiro. Para esses tipos, a busca precisa testar a
-ementa de cada registro retornado. Próximos caminhos: desambiguação
-por ementa (EMC/PAR/SBT), busca no corpus oficial já coletado e DOU
-por download da edição (XML/ZIP).
+por proposição (132 registros para o mesmo "EMC 1/2026"); o cliente
+agora pagina a consulta (`itens=100`, até 3 páginas) e testa a
+ementa de cada registro retornado (`search_all`, `Searcher`
+trabalha com a lista). Status de tipo ambíguo só vale do registro
+cuja ementa a alegação cita; sem ementa que case, o status não é
+atribuível. Detalhe: o artigo que acompanhava a referência ("O PL
+... institui") é tirado antes da contenção — sem isso, a alegação
+verbatim não casa com a ementa. Medido no teste dirigido (EMC
+1/2026, q271): veredito foi de Predominantemente verdadeiro (75%)
+para **Verdadeiro (91,7%)**, 3 de 4 alegações confirmadas na ementa
+do registro exato; a 4ª é paráfrase e fica sem evidência, como manda
+a regra conservadora. Próximos caminhos: busca no corpus oficial já
+coletado e DOU por download da edição (XML/ZIP).
 
 Avaliado e adiado: DOU não tem API pública de consulta (só portal
 web e WS-INCom de publicação); IBGE/SIDRA responde, mas falta o mapa
