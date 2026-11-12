@@ -64,7 +64,11 @@ DOU (sem endpoint público verificado).
 Fontes registradas em `data/sources.json`, verificadas ao vivo em
 12/11/2026 (G1, Senado Notícias e Poder360 por RSS; proposições da
 Câmara e matérias em tramitação do Senado por dados abertos). Nenhuma
-exige chave.
+exige chave. **O g1 usa o feed só de política**
+(`g1.globo.com/rss/g1/politica/`): o feed geral entregava notícia
+local e de crime, sem fonte primária possível — a rodada de notícias
+de 12/11 foi 10 de 10 inconclusivos. Com o feed de política, a
+rodada seguinte foi 6 de 10 com prova.
 
 ```bash
 python3 scripts/run_collectors.py            # uma passada
@@ -73,9 +77,10 @@ python3 scripts/run_collectors.py --loop 900 # repete a cada 15 min
 
 A coleta alimenta a fila persistente (`queue` no SQLite): cada item
 recebe score de triagem e só o verificável entra — referência a
-proposição, número/data/citação extraível ou palavra-chave política
-no título (corrigido em 12/11/2026; antes, ter link bastava, e a fila
-encheu de notícia geral sem nada checável). Prioridade: notícia com
+proposição ou palavra-chave política no título (corrigido em
+12/11/2026; antes, ter link bastava, e número sozinho também
+bastava — os dois deixavam entrar notícia de crime e local, "roubou
+R$ 12 mil", "70% de desconto"). Prioridade: notícia com
 referência (40) > notícia política (10 por palavra-chave no título)
 > listagem com ementa (15) > ref solta (5), mais bônus de recência.
 Listagens cruas de proposições ficam no fim da fila. Duplicatas são
@@ -193,6 +198,24 @@ confirmaram; as 3 alegações de conteúdo seguem sem evidência porque
 afirmam aprovação e a API do Senado não expõe situação descritiva
 (só existência, ementa e IndicadorTramitando). No dia: 67 vereditos,
 51 Inconclusivo (76%), 5 Predominantemente verdadeiro, 11 Verdadeiro.
+
+Feed do g1 trocado para política + triagem apertada (12/11/2026):
+o feed geral do g1 entregava notícia local e de crime — a rodada de
+notícias foi 10 de 10 Inconclusivo, sem fonte primária possível para
+"roubou R$ 12 mil" ou "70% de desconto". O g1 agora usa o RSS só de
+política e a triagem exige ref ou palavra-chave política no título
+(número sozinho não basta mais; lista estendida com reajuste,
+orçamento, fiscal, votação, sanção, veto, decreto, polícia federal,
+previdência). Aplicado na fila: 159 pendentes → 138 mantidos, 21
+descartados (g1 17, poder360 4). **Rodada de notícias pós-troca:
+6 de 10 com prova** (1 Verdadeiro, 5 Predominantemente verdadeiro)
+contra 0 de 10 antes. Os 4 inconclusivos restantes são itens que
+não nomeiam a proposição ("Congresso aprova projeto que autoriza
+governo a usar R$ 26 bilhões...") — a ref está no corpo do artigo,
+não no resumo. Próximo caminho: buscar o texto completo do artigo.
+No dia: 88 vereditos, 65 Inconclusivo (74%), 11 Predominantemente
+verdadeiro, 12 Verdadeiro — o dia segue carregando os vereditos
+pré-correção; a taxa da rodada atual é 60% com prova.
 
 Avaliado e adiado: DOU não tem API pública de consulta (só portal
 web e WS-INCom de publicação); IBGE/SIDRA responde, mas falta o mapa
