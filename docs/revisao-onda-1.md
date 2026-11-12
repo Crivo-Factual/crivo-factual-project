@@ -131,3 +131,15 @@ como Todo: busca por tipo de alegação (proposições via APIs da Câmara
 e do Senado; números oficiais a avaliar), regras determinísticas
 mantidas, aceite = vereditos com prova como maioria e inconclusivos
 abaixo de 50% numa rodada ao vivo de 10 itens.
+
+## Progresso #47 (12/11/2026, ~15:20 UTC)
+
+Busca implementada e medida. Cobertura de ~10% dos itens (4/40 na
+sonda offline); nas duas primeiras rodadas ao vivo de 10 itens:
+3 Verdadeiros com prova primária (q21, q22, q23), 10 Inconclusivo,
+7 Sem índice (sem alegação extraível). No dia: 39 vereditos, 3 com
+prova (8%), 36 Inconclusivo (92%). **Aceite NÃO atingido.** A busca
+funciona e nunca confirmou nada falso — o limite é a mistura de
+alegações da fila, não o motor. Próximos caminhos: extração por LLM
+(precisa de `GROQ_API_KEY`), busca no corpus oficial coletado e DOU
+por download da edição. Issue #47 segue aberta com os números.
