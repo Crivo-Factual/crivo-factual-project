@@ -40,6 +40,15 @@ def render_analysis(analysis, label, index, rule):
         )
     index_txt = f"{index:.0f}%" if index is not None else "sem índice"
     meter = f"{index:.0f}" if index is not None else "0"
+    version_txt = (
+        f"<p>Versão do veredito: {analysis['version']}</p>"
+        if analysis.get("version") else ""
+    )
+    recycled_txt = (
+        "<p>Esta análise reaproveita evidência de verificação anterior: "
+        f"{_esc(analysis['recycled_from'])}</p>"
+        if analysis.get("recycled_from") else ""
+    )
     return f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="utf-8">
@@ -49,7 +58,7 @@ def render_analysis(analysis, label, index, rule):
 <p><em>Todo fato passa pelo crivo. A conclusão é sua.</em></p>
 <h2>{_esc(analysis['title'])}</h2>
 <p><strong>Veredito: {label}</strong> — índice {index_txt} (regra: {rule})</p>
-<div>Medidor do crivo: {meter}/100</div>
+{version_txt}{recycled_txt}<div>Medidor do crivo: {meter}/100</div>
 <h3>Resumo</h3>
 <p>{_esc(analysis['summary'])}</p>
 <h3>Alegações verificadas</h3>
@@ -65,7 +74,9 @@ def render_analysis(analysis, label, index, rule):
 
 def render_index(analyses):
     links = "".join(
-        f"<li><a href='analise-{_esc(a['id'])}.html'>{_esc(a['title'])}</a></li>"
+        f"<li><a href='analise-{_esc(a['id'])}.html'>{_esc(a['title'])}</a>"
+        + (f" — {_esc(a['label'])}" if a.get("label") else "")
+        + "</li>"
         for a in analyses
     )
     return f"""<!DOCTYPE html>
