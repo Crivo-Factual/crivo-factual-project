@@ -7,18 +7,22 @@ Regras de segurança do pipeline:
   ou Falso sem prova.
 - Sem nenhuma alegação extraível, o item sai da fila como fora de
   escopo, sem veredito e sem página.
+- Sem veredito anterior, a busca primária ao vivo (#47) tenta a prova
+  nas APIs de dados abertos da Câmara e do Senado (ver
+  `evidence_search.py`). Sem prova, sem_evidencia.
 """
 
 import os
 from datetime import datetime, timezone
 
 from ..factbank import audit, queue as queue_mod, store
-from . import evidence, publish, verdict as vmod
+from . import evidence, evidence_search, publish, verdict as vmod
 from .extraction import extract_candidates
 from .llm import extract_with_llm
 
 
-def process_item(conn, queue_item, llm_client=None, site_dir=None):
+def process_item(conn, queue_item, llm_client=None, site_dir=None,
+                 searcher=None, evidence_enabled=True):
     """Processa um item da fila e devolve o resultado do veredito."""
     text = f"{queue_item.get('title', '')} {queue_item.get('summary') or ''}".strip()
     candidates = extract_candidates(text)
@@ -59,6 +63,18 @@ def process_item(conn, queue_item, llm_client=None, site_dir=None):
             recycled_from = prev["publication_id"]
         else:
             status = "sem_evidencia"
+            if evidence_enabled:
+                ev = (searcher or evidence_search.Searcher()).search_claim(cand["text"])
+                if ev:
+                    status = ev["status"]
+                    evidences.append(
+                        {
+                            "claim_text": cand["text"],
+                            "source_name": ev["source_name"],
+                            "source_url": ev.get("source_url"),
+                            "excerpt": ev.get("excerpt"),
+                        }
+                    )
         claim_objs.append(
             vmod.Claim(
                 text=cand["text"],
@@ -132,16 +148,21 @@ def rebuild_index(conn, site_dir):
         fh.write(publish.render_index(analyses))
 
 
-def process_queue(conn, limit=10, llm_client=None, site_dir=None):
+def process_queue(conn, limit=10, llm_client=None, site_dir=None,
+                  evidence_enabled=True, searcher=None):
     """Consome até `limit` itens da fila. Falha num item volta para a
     fila com backoff (não trava o resto)."""
+    if evidence_enabled and searcher is None:
+        searcher = evidence_search.Searcher()
     results = []
     for _ in range(limit):
         item = queue_mod.claim_next(conn)
         if item is None:
             break
         try:
-            results.append(process_item(conn, item, llm_client, site_dir))
+            results.append(process_item(conn, item, llm_client, site_dir,
+                                        searcher=searcher,
+                                        evidence_enabled=evidence_enabled))
         except Exception as exc:  # noqa: BLE001 - isola a falha do item
             conn.rollback()
             queue_mod.mark_failed(conn, item["id"])
