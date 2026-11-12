@@ -137,6 +137,75 @@ class TestVerdictPipeline(unittest.TestCase):
         self.assertEqual(results[0]["verdict"], ("Verdadeiro", 100, "faixa"))
         self.assertTrue(results[0]["published"])
 
+    def _central_claim(self, publication_id):
+        row = self.conn.execute(
+            "SELECT text FROM claims WHERE publication_id=? AND central=1",
+            (publication_id,),
+        ).fetchone()
+        return row[0] if row else None
+
+    def test_central_is_llm_assertion_not_bare_date(self):
+        # Caso real (rodada 12/11): "12/11/2026" virava a central e
+        # travava o veredito. Agora a central é a afirmação do LLM.
+        self._enqueue("Congresso aprova pacote de R$ 50 bilhões 12/11/2026")
+        fake = FakeLLM(
+            [{"text": "O Congresso aprovou um pacote de R$ 50 bilhões",
+              "kind": "afirmação"}]
+        )
+        results = verdict_pipeline.process_queue(
+            self.conn, limit=5, llm_client=fake, site_dir=self.site,
+            searcher=FakeSearcher(), article_fetcher=lambda url: b"",
+        )
+        self.assertEqual(
+            results[0]["verdict"], ("Inconclusivo", 50, "trava_do_centro")
+        )
+        self.assertEqual(
+            self._central_claim("q1"),
+            "O Congresso aprovou um pacote de R$ 50 bilhões",
+        )
+
+    def test_central_is_proposition_when_present(self):
+        self._enqueue("PL 5832/2026 — R$ 50 bilhões em 12/11/2026")
+        results = verdict_pipeline.process_queue(
+            self.conn, limit=5, site_dir=self.site, searcher=FakeSearcher(),
+            article_fetcher=lambda url: b"",
+        )
+        self.assertEqual(results[0]["verdict"], ("Verdadeiro", 80, "faixa"))
+        self.assertEqual(self._central_claim("q1"), "PL 5832/2026")
+
+    def test_central_is_ato_when_no_proposition(self):
+        class FakeDouSearcher:
+            def search_claim(self, text):
+                if "Lei nº 14.973" in text:
+                    return {
+                        "status": "confirmada",
+                        "source_name": "Diário Oficial da União — Imprensa Nacional",
+                        "source_url": "https://www.in.gov.br/web/dou/-/lei-n-14-973-2",
+                        "excerpt": "LEI Nº 14.973, DE 16 DE SETEMBRO DE 2024 — Publicado em 16/09/2024.",
+                    }
+                return None
+
+        self._enqueue("Lei nº 14.973, de 2024, foi sancionada")
+        results = verdict_pipeline.process_queue(
+            self.conn, limit=5, site_dir=self.site, searcher=FakeDouSearcher(),
+            article_fetcher=lambda url: b"",
+        )
+        self.assertEqual(results[0]["verdict"], ("Verdadeiro", 100, "faixa"))
+        self.assertEqual(self._central_claim("q1"), "Lei nº 14.973, de 2024")
+
+    def test_only_bare_numbers_central_is_first(self):
+        # Só número e data: não há alternativa — a central cai no
+        # primeiro candidato (sem quebrar) e o veredito trava.
+        self._enqueue("Bolsa Família de R$ 691 em 12/11/2026")
+        results = verdict_pipeline.process_queue(
+            self.conn, limit=5, llm_client=None, site_dir=self.site,
+            article_fetcher=lambda url: b"",
+        )
+        self.assertEqual(
+            results[0]["verdict"], ("Inconclusivo", 50, "trava_do_centro")
+        )
+        self.assertEqual(self._central_claim("q1"), "R$ 691")
+
 
 if __name__ == "__main__":
     unittest.main()
