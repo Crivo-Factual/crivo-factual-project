@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from crivo import config  # noqa: E402
-from crivo.factbank import queue as queue_mod, store  # noqa: E402
+from crivo.factbank import audit, queue as queue_mod, store  # noqa: E402
 from crivo.pipeline import collectors, triage  # noqa: E402
 
 
@@ -28,6 +28,7 @@ def load_sources():
 def run_once():
     conn = store.init_db(config.DB_PATH, config.SCHEMA_PATH)
     queue_mod.init_queue(conn)
+    audit.init_audit(conn)
     sources = load_sources()
     items, failures = collectors.collect_all(sources)
     for name, err in failures:
@@ -42,6 +43,11 @@ def run_once():
     print(f"estado da fila: {queue_mod.counts(conn)}")
     for row in queue_mod.peek(conn, limit=5):
         print(f"  [{row['score']}] {row['source']}: {row['title'][:80]}")
+    audit.log_event(conn, "collect", None, {
+        "collected": len(items), "kept": len(kept), "dropped": len(dropped),
+        "inserted": result["inserted"], "duplicates": result["duplicates"],
+        "failures": len(failures),
+    })
     conn.close()
     return result
 
