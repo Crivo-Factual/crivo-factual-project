@@ -35,6 +35,7 @@ def parse_rss(raw):
                 "link": _text(el, "link"),
                 "published": _text(el, "pubDate"),
                 "summary": _text(el, "description"),
+                "image_url": _media_url(el),
             }
         )
     for el in root.iter("{http://www.w3.org/2005/Atom}entry"):  # Atom
@@ -48,9 +49,29 @@ def parse_rss(raw):
                 "link": link,
                 "published": _text(el, "{http://www.w3.org/2005/Atom}updated"),
                 "summary": _text(el, "{http://www.w3.org/2005/Atom}summary"),
+                "image_url": _media_url(el),
             }
         )
     return items
+
+
+def _media_url(el):
+    """URL da imagem do item, quando o feed a traz (media:content,
+    media:thumbnail ou enclosure de imagem). Senão, string vazia."""
+    for tag in (
+        "{http://search.yahoo.com/mrss/}content",
+        "{http://search.yahoo.com/mrss/}thumbnail",
+    ):
+        child = el.find(tag)
+        if child is not None and child.get("url"):
+            return child.get("url")
+    enc = el.find("enclosure")
+    if enc is not None and (enc.get("type") or "").startswith("image"):
+        return enc.get("url") or ""
+    for ln in el.findall("{http://www.w3.org/2005/Atom}link"):
+        if ln.get("rel") == "enclosure" and (ln.get("type") or "").startswith("image"):
+            return ln.get("href") or ""
+    return ""
 
 
 def fetch_rss(url, timeout=20):
@@ -73,6 +94,7 @@ def parse_camara_proposicoes(data):
                 "link": prop.get("uri") or "",
                 "published": prop.get("dataApresentacao", ""),
                 "summary": ementa,
+                "image_url": "",
             }
         )
     # Mais recentes primeiro (datas ISO ordenam como texto).
@@ -107,6 +129,7 @@ def parse_senado_materias(raw):
                 "link": "",
                 "published": find("DataApresentacao"),
                 "summary": f"Matéria {codigo}: {ementa}" if codigo else ementa,
+                "image_url": "",
             }
         )
     # Mais recentes primeiro (datas ISO ordenam como texto).
