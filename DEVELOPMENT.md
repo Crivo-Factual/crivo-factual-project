@@ -184,6 +184,16 @@ JSON como texto (caso real q294: alegações "recommendationSummary",
 "cropOptions", UUIDs). Widgets de cotação são ignorados (o ticker
 virava alegação de número solto).
 
+O DOU entrou em 12/11/2026 (`crivo/pipeline/dou.py` + busca em
+`evidence_search.py`): a busca web do portal, com a frase exata
+entre aspas e ordenação por relevância, devolve o próprio ato em
+primeiro. O portal exige cabeçalho Accept de navegador (403 sem
+ele). Só vale para alegação sem ref de proposição — um ato citado
+dentro de outra alegação não prova a alegação. Status que o ato
+implica: Lei sancionada/aprovada, EC promulgada/aprovada; outro
+status não confirma nem contradiz. Ato não encontrado + status
+federal -> contraditada (mesma regra das proposições).
+
 Triagem corrigida em 12/11/2026: 213 pendentes → 107 mantidos
 (re-score) e 106 descartados (g1 72, poder360 8, camara_proposicoes
 26 — estes últimos com ano 0 ou tipo fora do padrão, ref quebrada).
@@ -236,9 +246,20 @@ artigo funciona (texto limpo nos 3 portais, refs encontradas quando
 a matéria as imprime, ex.: PLP 299/2026 em artigos de texto do
 Senado), mas o gargalo agora é a referência incompleta, não o
 acesso ao texto. No dia: 102 vereditos, 79 Inconclusivo (77%), 11
-Predominantemente verdadeiro, 12 Verdadeiro. Próximos caminhos:
-referências sem ano (tentar ano da matéria e ano anterior, com a
-ementa como desambiguador) ou DOU por download da edição.
+Predominantemente verdadeiro, 12 Verdadeiro.
+
+DOU por busca web (12/11/2026): implementado e medido. Testes ao
+vivo: EC 141/2026 promulgada, Lei 14.973/2024 sancionada, Decreto
+10.954/2022 publicado e MP 1.373/2026 publicada confirmam; Lei
+99.999/2026 contradiz. Na rodada ao vivo (10 itens): **1 Verdadeiro
+(q210, PAR 21/2026, 86%)** — o DOU confirmou 2 alegações sobre a MP
+1384/2026 e a Câmara confirmou o parecer; 8 Inconclusivo, 1 Sem
+índice. Diagnóstico novo: as centrais dos 8 inconclusivos são número
+ou data soltos ("R$ 3 mil", "40%", "12/11/2026") — com o texto do
+artigo, a data de publicação vira candidata e, sem proposição no
+texto, vira a central. Próximo caminho: a central nunca ser número
+ou data solto. No dia: 111 vereditos, 87 Inconclusivo (78%), 11
+Predominantemente verdadeiro, 13 Verdadeiro.
 
 Avaliado e adiado: DOU não tem API pública de consulta (só portal
 web e WS-INCom de publicação); IBGE/SIDRA responde, mas falta o mapa
