@@ -23,6 +23,20 @@ class FakeLLM:
         return json.dumps({"claims": self._claims})
 
 
+class FakeSearcher:
+    """Busca falsa: confirma qualquer alegação sobre PL 5832/2026."""
+
+    def search_claim(self, text):
+        if "PL 5832/2026" in text:
+            return {
+                "status": "confirmada",
+                "source_name": "Câmara dos Deputados — dados abertos",
+                "source_url": "https://dadosabertos.camara.leg.br/api/v2/proposicoes/2653123",
+                "excerpt": "Ementa oficial: Institui o Programa Primeiro Negócio",
+            }
+        return None
+
+
 class TestVerdictPipeline(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -84,6 +98,14 @@ class TestVerdictPipeline(unittest.TestCase):
         self.assertEqual(
             results[0]["verdict"], ("Inconclusivo", 50, "trava_do_centro")
         )
+
+    def test_live_evidence_confirms_proposition(self):
+        self._enqueue("PL 5832/2026 — Institui o Programa Primeiro Negócio")
+        results = verdict_pipeline.process_queue(
+            self.conn, limit=5, site_dir=self.site, searcher=FakeSearcher()
+        )
+        self.assertEqual(results[0]["verdict"], ("Verdadeiro", 100, "faixa"))
+        self.assertTrue(results[0]["published"])
 
     def test_no_claims_is_out_of_scope(self):
         self._enqueue("Bom dia", link="https://x/3", score=0)
