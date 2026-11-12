@@ -19,6 +19,12 @@ A demonstração lê `data/examples.json` (3 análises documentadas),
 calcula os vereditos com o motor determinístico, grava no banco SQLite
 (`crivo.db`) e gera páginas estáticas em `site/` (ignorado pelo git).
 
+## Integração contínua
+
+A cada push e pull request na `main`, o GitHub Actions
+(`.github/workflows/ci.yml`) roda os testes e a demonstração. O status
+aparece na aba Actions do repositório.
+
 ## Estrutura
 
 ```text
