@@ -12,7 +12,7 @@ Regras de segurança do pipeline:
 import os
 from datetime import datetime, timezone
 
-from ..factbank import queue as queue_mod, store
+from ..factbank import audit, queue as queue_mod, store
 from . import evidence, publish, verdict as vmod
 from .extraction import extract_candidates
 from .llm import extract_with_llm
@@ -85,6 +85,8 @@ def process_item(conn, queue_item, llm_client=None, site_dir=None):
     store.insert_verdict(conn, pub_id, label, index, rule, now, version=version)
     queue_mod.mark_done(conn, queue_item["id"])
     conn.commit()
+    audit.log_event(conn, "verdict", pub_id,
+                    {"label": label, "index": index, "rule": rule, "version": version})
     published = False
     if site_dir:
         analysis = {
