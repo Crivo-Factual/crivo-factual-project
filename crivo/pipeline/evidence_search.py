@@ -42,10 +42,15 @@ PROPOSITION_RE = re.compile(
 # Referência a ato publicado no DOU: "Lei nº 14.973, de 2024",
 # "Emenda Constitucional nº 141, de 2026", "EC 141/2026", "MP 1373"
 # (sem ano). O ano é opcional — o número do ato é único por tipo.
+# A sigla precisa ser seguida de espaço ou "nº" antes do número:
+# sem isso, "MP3" (o formato de áudio) casaria como Medida
+# Provisória nº 3. O órgão pode vir entre o tipo e o número
+# ("Portaria MF Nº 545"). Mesmo padrão em extraction.ACT — manter os
+# dois iguais.
 ACT_RE = re.compile(
     r"\b(Decreto-Lei|Lei Complementar|Emenda Constitucional|Medida Provisória"
     r"|Instrução Normativa|Lei|Decreto|Portaria|Resolução|EC|MP|LC)"
-    r"\s*(?:n[ºo°]?\s*)?(\d[\d.]*)(?:\s*[,/]?\s*(?:de\s*)?(\d{4}))?",
+    r"(?:\s+(?-i:[A-Z]{1,6}))?(?:\s+n[ºo°]?\s*|\s+)(\d[\d.]*)(?:\s*[,/]?\s*(?:de\s*)?(\d{4}))?",
     re.IGNORECASE,
 )
 
