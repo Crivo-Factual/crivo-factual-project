@@ -16,15 +16,16 @@ import os
 from datetime import datetime, timezone
 
 from ..factbank import audit, queue as queue_mod, store
+from . import article as article_mod
 from . import evidence, evidence_search, publish, verdict as vmod
 from .extraction import extract_candidates
 from .llm import extract_with_llm
 
 
 def process_item(conn, queue_item, llm_client=None, site_dir=None,
-                 searcher=None, evidence_enabled=True):
+                 searcher=None, evidence_enabled=True, article_fetcher=None):
     """Processa um item da fila e devolve o resultado do veredito."""
-    text = f"{queue_item.get('title', '')} {queue_item.get('summary') or ''}".strip()
+    text = article_mod.get_item_text(queue_item, fetcher=article_fetcher)
     candidates = extract_candidates(text)
     if llm_client is not None:
         candidates = candidates + extract_with_llm(text, llm_client)
@@ -149,7 +150,7 @@ def rebuild_index(conn, site_dir):
 
 
 def process_queue(conn, limit=10, llm_client=None, site_dir=None,
-                  evidence_enabled=True, searcher=None):
+                  evidence_enabled=True, searcher=None, article_fetcher=None):
     """Consome até `limit` itens da fila. Falha num item volta para a
     fila com backoff (não trava o resto)."""
     if evidence_enabled and searcher is None:
@@ -162,7 +163,8 @@ def process_queue(conn, limit=10, llm_client=None, site_dir=None,
         try:
             results.append(process_item(conn, item, llm_client, site_dir,
                                         searcher=searcher,
-                                        evidence_enabled=evidence_enabled))
+                                        evidence_enabled=evidence_enabled,
+                                        article_fetcher=article_fetcher))
         except Exception as exc:  # noqa: BLE001 - isola a falha do item
             conn.rollback()
             queue_mod.mark_failed(conn, item["id"])
