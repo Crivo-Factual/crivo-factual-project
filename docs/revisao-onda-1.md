@@ -121,3 +121,13 @@ prova: verificar boatos com prova nem identificar os mais virais.
 2. **Manter a Onda 1 aberta:** só fechar quando existir busca de
    fontes primárias ao vivo e medição de viralização, isto é, quando
    vereditos com prova forem a maioria dos processados.
+
+## Decisão registrada (12/11/2026)
+
+**Opção 2 — manter a Onda 1 aberta até a busca primária.** A Onda 1
+não está fechada. O trabalho que a bloqueia está rastreado na issue
+#47 ("Onda 1 — Busca de evidências primárias ao vivo"), no quadro
+como Todo: busca por tipo de alegação (proposições via APIs da Câmara
+e do Senado; números oficiais a avaliar), regras determinísticas
+mantidas, aceite = vereditos com prova como maioria e inconclusivos
+abaixo de 50% numa rodada ao vivo de 10 itens.
