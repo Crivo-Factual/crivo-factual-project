@@ -192,7 +192,10 @@ ele). Só vale para alegação sem ref de proposição — um ato citado
 dentro de outra alegação não prova a alegação. Status que o ato
 implica: Lei sancionada/aprovada, EC promulgada/aprovada; outro
 status não confirma nem contradiz. Ato não encontrado + status
-federal -> contraditada (mesma regra das proposições).
+federal -> contraditada (mesma regra das proposições). A extração
+por regras também encontra o ato (`extraction.ACT`, mesmo padrão
+que `evidence_search.ACT_RE`): "Lei nº 14.973, de 2024" vira
+candidato kind "ato" e pode ser a central.
 
 Triagem corrigida em 12/11/2026: 213 pendentes → 107 mantidos
 (re-score) e 106 descartados (g1 72, poder360 8, camara_proposicoes
@@ -257,9 +260,38 @@ vivo: EC 141/2026 promulgada, Lei 14.973/2024 sancionada, Decreto
 índice. Diagnóstico novo: as centrais dos 8 inconclusivos são número
 ou data soltos ("R$ 3 mil", "40%", "12/11/2026") — com o texto do
 artigo, a data de publicação vira candidata e, sem proposição no
-texto, vira a central. Próximo caminho: a central nunca ser número
-ou data solto. No dia: 111 vereditos, 87 Inconclusivo (78%), 11
-Predominantemente verdadeiro, 13 Verdadeiro.
+texto, vira a central.
+
+Central corrigida (12/11/2026): a central agora é a alegação mais
+verificável, não a primeira do texto — proposição, ato do DOU,
+afirmação do LLM ou citação; número, valor e data soltos nunca são
+central se houver alternativa (`verdict_pipeline.choose_central_index`).
+A extração por regras passou a encontrar atos do DOU (kind "ato") e
+a citação fragmentada ("..., disse o secretário.") não vira mais
+candidato. **Medido — reprocessamento dos 8 inconclusivos: 0 viraram,
+mas 5 de 8 centrais passaram a ser afirmações de verdade** (ex.:
+"O presidente Lula embarcou para as Filipinas..."); os 3 restantes
+(q149, q311, q313) ficaram sem alegação do LLM. **Rodada fresca (10
+itens): 9 Inconclusivo, 1 Predominantemente verdadeiro (q323, 71%,
+decreto 13.161/2026 confirmado no DOU)**; 7 de 10 centrais são
+afirmações ou refs de ato. No dia: 139 vereditos, 114 Inconclusivo
+(82%), 12 Predominantemente verdadeiro, 13 Verdadeiro — o agregado
+carrega as versões antigas; a rodada atual já não tem central de
+número/data solto salvo quando o LLM falha.
+
+Limite medido do Groq free tier (12/11): a API falha de formas
+diferentes no mesmo dia — 429 (tokens/minuto), 400
+json_validate_failed (o modelo não gerou JSON), 301 para a mesma URL
+(o urllib virava GET e a API respondia 404) e RemoteDisconnected.
+O cliente agora retenta os transitórios (429, 301, 400
+json_validate_failed, queda de conexão) com espera crescente,
+preserva o POST no redirect, corta o prompt em 4.000 chars no fim
+de palavra — e mesmo assim o LLM devolve [] para q149/q311/q313.
+Quando o LLM falha, o pipeline segue só com regras (desenho
+conservador): a central cai no primeiro candidato. Próximo caminho:
+uma fonte primária para afirmações sem ref (ex.: o próprio texto
+da matéria como evidência fraca) ou aceitar o Inconclusivo como
+resposta correta para notícia sem ref.
 
 Avaliado e adiado: DOU não tem API pública de consulta (só portal
 web e WS-INCom de publicação); IBGE/SIDRA responde, mas falta o mapa
