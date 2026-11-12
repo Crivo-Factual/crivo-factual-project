@@ -15,12 +15,20 @@ import os
 import sys
 import urllib.request
 
+from .extraction import clean_text
+
 SYSTEM_PROMPT = (
     "Você extrai alegações atômicas verificáveis de um texto político. "
     "Responda SOMENTE com JSON, neste formato: "
     '{"claims": [{"text": "...", "kind": "..."}]}. '
-    "Não julgue veracidade, não adicione comentários. Cada alegação deve "
-    "ser uma afirmação única e checável."
+    "Não julgue veracidade, não adicione comentários. "
+    "Responda na mesma língua do texto de origem (em português, se o "
+    "texto for em português). Cada alegação deve ser autocontida: inclua "
+    "o sujeito, o predicado e o valor ou número — nunca devolva apenas "
+    "um número, um percentual ou um valor solto. Quando o texto "
+    "mencionar uma proposição (PL, PEC, PLP, MPV, REQ etc.), inclua a "
+    "sigla, o número e o ano na alegação (ex.: 'O Senado aprovou o PL "
+    "1159/2026'). Nunca devolva URLs ou fragmentos de HTML."
 )
 
 
@@ -84,7 +92,8 @@ class GroqClient:
 def extract_with_llm(text, client):
     """Extrai alegações via LLM. Devolve [] em qualquer falha (sem chave,
     erro de rede, resposta inválida): o pipeline segue só com regras."""
-    if client is None or not (text or "").strip():
+    text = clean_text(text)
+    if client is None or not text:
         return []
     try:
         raw = client.complete(
@@ -94,9 +103,13 @@ def extract_with_llm(text, client):
         claims = []
         for item in data.get("claims", []):
             if isinstance(item, dict) and item.get("text"):
-                claims.append(
-                    {"text": str(item["text"]).strip(), "kind": str(item.get("kind", ""))}
-                )
+                claim = str(item["text"]).strip()
+                # Defesa em profundidade: o modelo pode devolver URL ou
+                # fragmento de HTML mesmo com o prompt proibindo.
+                if claim and "http" not in claim and "<" not in claim and ">" not in claim:
+                    claims.append(
+                        {"text": claim, "kind": str(item.get("kind", ""))}
+                    )
         return claims
     except Exception:  # noqa: BLE001 - qualquer falha vira "só regras"
         return []
