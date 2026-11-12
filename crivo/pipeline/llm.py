@@ -38,7 +38,7 @@ class GroqClient:
                 "copie .env.example para .env com a chave do Groq free tier, "
                 "ou use via_vault=True (conexão custom.groq no Secure Vault)."
             )
-        self.model = model or os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+        self.model = model or os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
         self.base_url = base_url
         self.timeout = timeout
 
@@ -58,7 +58,12 @@ class GroqClient:
             self.base_url + "/chat/completions",
             data=body,
             method="POST",
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                # Sem User-Agent próprio, o Cloudflare (error 1010)
+                # barra o Python-urllib. Mesmo padrão dos coletores.
+                "User-Agent": "CrivoFactual/0.1",
+            },
         )
         if self.via_vault:
             # A chave real nunca passa por aqui: o runtime troca o
