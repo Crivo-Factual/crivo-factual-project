@@ -33,7 +33,7 @@ from .evidence import normalize
 
 PROPOSITION_RE = re.compile(
     r"\b(PL|PLS|PEC|MPV|PLP|PDC|PDS|RQS|REQ|MSG|VET|MSF|PRS|PLC|RIC|MSC|PAR|EMC|SBT)"
-    r"\s*(\d+)/(\d{4})\b"
+    r"\s*((?:\d{1,3}(?:\.\d{3})+|\d+))/(\d{4})\b"
 )
 
 # Tipos numerados por proposição, não por ano: o mesmo "EMC 1/2026"
@@ -256,9 +256,11 @@ class Searcher:
         self._cache = {}
 
     def _lookup(self, sigla, numero, ano):
-        """Devolve (registros, casas consultadas). A Câmara pode devolver
-        vários registros para a mesma referência (tipos ambíguos); o
-        Senado devolve no máximo um. O cache é por referência."""
+        """Devolve (registros, casas consultadas). Consulta SEMPRE as
+        duas casas: a mesma proposição tem ementas com redação
+        diferente na Câmara e no Senado (caso real PL 1454/2023), e
+        a confirmação por ementa precisa testar as duas. O cache é
+        por referência."""
         key = (sigla, numero, ano)
         if key in self._cache:
             return self._cache[key]
@@ -275,8 +277,6 @@ class Searcher:
             except Exception:  # noqa: BLE001 - casa indisponível, tenta a outra
                 continue
             records.extend(found)
-            if records:
-                break
         result = (records, consulted)
         self._cache[key] = result
         return result
@@ -310,7 +310,7 @@ class Searcher:
         ref = PROPOSITION_RE.search(text or "")
         if not ref:
             return None
-        sigla, numero, ano = ref.group(1), ref.group(2), ref.group(3)
+        sigla, numero, ano = ref.group(1), ref.group(2).replace(".", ""), ref.group(3)
         claim_status = _detect_status(text)
         records, consulted = self._lookup(sigla, numero, ano)
         if not records:
