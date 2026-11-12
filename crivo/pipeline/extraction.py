@@ -23,6 +23,19 @@ PROPOSITION = re.compile(
 # O padrão antigo (\d+) não casava o ponto e a referência sumia: a
 # alegação ficava sem busca e sem evidência (caso real q70).
 
+# Referência a ato publicado no DOU ("Lei nº 14.973, de 2024", "EC
+# 141/2026", "MP 1373"). A sigla precisa ser seguida de espaço ou
+# "nº" antes do número: sem isso, "MP3" (o formato de áudio) casaria
+# como Medida Provisória nº 3. O órgão pode vir entre o tipo e o
+# número ("Portaria MF Nº 545"). Mesmo padrão em
+# evidence_search.ACT_RE — manter os dois iguais.
+ACT = re.compile(
+    r"\b(Decreto-Lei|Lei Complementar|Emenda Constitucional|Medida Provisória"
+    r"|Instrução Normativa|Lei|Decreto|Portaria|Resolução|EC|MP|LC)"
+    r"(?:\s+(?-i:[A-Z]{1,6}))?(?:\s+n[ºo°]?\s*|\s+)(\d[\d.]*)(?:\s*[,/]?\s*(?:de\s*)?(\d{4}))?",
+    re.IGNORECASE,
+)
+
 
 def clean_text(text):
     """Tira markup do texto (resumos de RSS trazem HTML) antes de extrair.
@@ -42,10 +55,13 @@ def clean_text(text):
 def extract_candidates(text):
     """Devolve candidatos [{text, kind}] sem duplicar pelo texto.
 
-    Ordem: a proposição vem primeiro — é a alegação mais verificável
-    (tem registro oficial) e vira a central no pipeline (#47). Um
-    número solto ("50%") sem contexto quase nunca é verificável
-    sozinho e não deve ser a central quando há uma proposição.
+    Ordem: a proposição vem primeiro, depois o ato do DOU — são as
+    alegações mais verificáveis (têm registro oficial) e a central no
+    pipeline (#47) sai daqui. Um número solto ("50%") ou uma data
+    ("12/11/2026") sem contexto quase nunca é verificável sozinho e
+    nunca é a central quando há uma proposição, um ato ou uma
+    afirmação do LLM (a escolha da central está em
+    verdict_pipeline.choose_central_index).
     """
     found = []
     seen = set()
@@ -59,6 +75,8 @@ def extract_candidates(text):
 
     for m in PROPOSITION.finditer(text or ""):
         add("proposição", m.group(0))
+    for m in ACT.finditer(text or ""):
+        add("ato", m.group(0))
     for m in MONEY.finditer(text or ""):
         add("valor", m.group(0))
     for m in PERCENT.finditer(text or ""):
@@ -66,5 +84,11 @@ def extract_candidates(text):
     for m in DATE.finditer(text or ""):
         add("data", m.group(0))
     for m in QUOTE.finditer(text or ""):
-        add("citação", m.group(1))
+        # Fragmento entre aspas ("..., disse o secretário.") não é
+        # citação: o padrão casa o texto entre o fechamento de uma
+        # aspa e a abertura da próxima. Citação começa com letra ou
+        # número (caso real q313).
+        value = m.group(1).strip()
+        if value and value[0].isalnum():
+            add("citação", value)
     return found
