@@ -38,6 +38,32 @@ class TestTriage(unittest.TestCase):
             )
         )
 
+    def test_numero_sozinho_nao_basta(self):
+        # Número sem palavra-chave política: notícia de crime/local,
+        # sem fonte primária possível.
+        for title in (
+            "Neto é apreendido suspeito de roubar R$ 12 mil do avô",
+            "Blue Friday oferece 70% de desconto em São Luís",
+            "Quatro homens são condenados a até 50 anos de prisão",
+        ):
+            self.assertFalse(
+                triage.is_verifiable({"title": title, "link": "https://x", "summary": ""}),
+                title,
+            )
+
+    def test_numero_com_palavra_politica_passa(self):
+        self.assertTrue(
+            triage.is_verifiable(
+                {"title": "Governo anuncia reajuste de 15% no salário mínimo",
+                 "link": "", "summary": ""}
+            )
+        )
+        self.assertTrue(
+            triage.is_verifiable(
+                {"title": "STF mantém veto a projeto", "link": "", "summary": ""}
+            )
+        )
+
     def test_proposition_reference_is_verifiable(self):
         # Matéria do Senado sem link: a referência "PL 45/2026" é
         # conferível no registro oficial, então é verificável.
