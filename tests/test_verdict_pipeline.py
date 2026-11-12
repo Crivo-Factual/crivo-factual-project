@@ -73,7 +73,8 @@ class TestVerdictPipeline(unittest.TestCase):
         self._enqueue("O Bolsa Família acabou, diz vídeo")
         fake = FakeLLM([{"text": "O Bolsa Família acabou", "kind": "afirmação"}])
         results = verdict_pipeline.process_queue(
-            self.conn, limit=5, llm_client=fake, site_dir=self.site
+            self.conn, limit=5, llm_client=fake, site_dir=self.site,
+            article_fetcher=lambda url: b"",
         )
         self.assertEqual(len(results), 1)
         r = results[0]
@@ -93,7 +94,8 @@ class TestVerdictPipeline(unittest.TestCase):
             [{"text": "O governo anunciou uma medida inédita", "kind": "afirmação"}]
         )
         results = verdict_pipeline.process_queue(
-            self.conn, limit=5, llm_client=fake, site_dir=self.site
+            self.conn, limit=5, llm_client=fake, site_dir=self.site,
+            article_fetcher=lambda url: b"",
         )
         self.assertEqual(
             results[0]["verdict"], ("Inconclusivo", 50, "trava_do_centro")
@@ -102,7 +104,8 @@ class TestVerdictPipeline(unittest.TestCase):
     def test_live_evidence_confirms_proposition(self):
         self._enqueue("PL 5832/2026 — Institui o Programa Primeiro Negócio")
         results = verdict_pipeline.process_queue(
-            self.conn, limit=5, site_dir=self.site, searcher=FakeSearcher()
+            self.conn, limit=5, site_dir=self.site, searcher=FakeSearcher(),
+            article_fetcher=lambda url: b"",
         )
         self.assertEqual(results[0]["verdict"], ("Verdadeiro", 100, "faixa"))
         self.assertTrue(results[0]["published"])
@@ -111,10 +114,28 @@ class TestVerdictPipeline(unittest.TestCase):
         self._enqueue("Bom dia", link="https://x/3", score=0)
         # Sem LLM e sem candidatos nas regras -> sem alegações.
         results = verdict_pipeline.process_queue(
-            self.conn, limit=5, llm_client=None, site_dir=self.site
+            self.conn, limit=5, llm_client=None, site_dir=self.site,
+            article_fetcher=lambda url: b"",
         )
         self.assertEqual(results[0]["verdict"], ("Sem índice", None, "sem_alegacoes"))
         self.assertFalse(results[0]["published"])
+
+    def test_article_body_provides_reference(self):
+        # Título/resumo sem ref; o corpo do artigo traz PL 5832/2026.
+        self._enqueue("Congresso aprova projeto de incentivo")
+
+        def fetch(url):
+            return (
+                "<p>O Congresso aprovou o PL 5832/2026, que institui "
+                "o Programa Primeiro Negócio.</p>"
+            ).encode("utf-8")
+
+        results = verdict_pipeline.process_queue(
+            self.conn, limit=5, llm_client=FakeLLM([]), site_dir=self.site,
+            searcher=FakeSearcher(), article_fetcher=fetch,
+        )
+        self.assertEqual(results[0]["verdict"], ("Verdadeiro", 100, "faixa"))
+        self.assertTrue(results[0]["published"])
 
 
 if __name__ == "__main__":
