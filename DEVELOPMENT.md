@@ -86,6 +86,7 @@ O pipeline consome a fila e publica análises:
 ```bash
 python3 scripts/run_verdicts.py --limit 10   # só regras
 python3 scripts/run_verdicts.py --limit 10 --llm  # + Groq free tier
+python3 scripts/run_verdicts.py --limit 10 --loop 900  # repete a cada 15 min
 ```
 
 A extração por LLM usa o Groq free tier (sem cartão): copie
