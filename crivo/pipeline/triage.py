@@ -4,20 +4,46 @@ Proxy v0.1 de viralização: recência + sinais de circulação por
 palavras-chave. Não é medição real de viralização (isso exige APIs
 pagas de plataformas); só ordena a fila para a extração.
 
-Verificabilidade (M2): só entra no pipeline o que pode ser checado —
-tem link para a fonte (o texto completo será extraído depois) ou já
-traz no título/resumo algo verificável (número, data, citação).
+Verificabilidade (M2, corrigida em 12/11/2026): só entra no
+pipeline o que traz no título/resumo algo checável — referência a
+proposição, número, data, citação ou palavra-chave política. Ter
+link NÃO basta: o pipeline só lê título+resumo (nunca busca o texto
+completo do artigo), então um item sem conteúdo extraível no
+título/resumo sempre sairia como Sem índice. A regra antiga ("link
+basta") deixava entrar notícia geral sem nada checável — 100 dos
+110 itens pendentes do g1 em 12/11 não tinham ref nem palavra-chave.
+
+Prioridade (corrigida em 12/11/2026): a evidência ao vivo só prova
+alegações com referência, então notícia com referência passa na
+frente. Listagens cruas de proposições (fontes camara_proposicoes
+e senado_tramitando) são registros de referência, não notícia: ficam
+no fim da fila e só são processadas sem notícia pendente.
 """
 
+import re
 from datetime import datetime, timezone
 
-from .extraction import extract_candidates
+from .extraction import PROPOSITION, extract_candidates
 
 KEYWORDS = [
     "bolsa família", "governo", "lula", "bolsonaro", "congresso", "senado",
     "câmara", "stf", "eleição", "imposto", "salário", "aposentadoria",
     "inss", "pix", "juros", "selic", "combustível", "escala 6x1",
+    "deputado", "senador", "ministro", "plenário", "prefeito",
+    "governador", "vereador", "partido",
 ]
+
+# Fontes que listam proposições (título = referência ou referência +
+# ementa), não notícia. São verificáveis, mas de baixo valor como
+# checagem — vão para o fim da fila.
+LISTING_SOURCES = {"camara_proposicoes", "senado_tramitando"}
+
+# Título que é só a referência ("PL 05827/2026") ou quase só ela.
+BARE_REF = re.compile(
+    r"^\s*(?:PL|PLS|PEC|MPV|PLP|PDC|PDS|RQS|REQ|MSG|VET|MSF|PRS|PLC|RIC|MSC|PAR|EMC|SBT)"
+    r"\s*\d+/\d{4}\s*[-–—:.]?\s*$",
+    re.IGNORECASE,
+)
 
 
 def _recency_bonus(published):
@@ -43,11 +69,33 @@ def _recency_bonus(published):
     return 0
 
 
+def _has_ref(text):
+    return bool(PROPOSITION.search(text or ""))
+
+
+def _keyword_hits(text, keywords=None):
+    text = (text or "").lower()
+    return sum(1 for kw in (keywords or KEYWORDS) if kw in text)
+
+
 def score(item, keywords=None):
-    text = f"{item.get('title', '')} {item.get('summary', '')}".lower()
-    kws = keywords or KEYWORDS
-    hits = sum(1 for kw in kws if kw in text)
-    return 10 * hits + _recency_bonus(item.get("published", ""))
+    """Prioridade: notícia com referência (40) > notícia política
+    (10 por palavra-chave NO TÍTULO) > listagem com ementa (15) >
+    ref solta (5). Soma o bônus de recência (20 <24h, 10 <72h).
+
+    Palavras-chave contam só no título: no resumo, uma menção de
+    passagem ("o governo federal informou...") inflava notícia de
+    crime e local para o topo da fila."""
+    title = item.get("title", "") or ""
+    text = f"{title} {item.get('summary', '') or ''}"
+    total = 0
+    if item.get("source") in LISTING_SOURCES:
+        total += 5 if BARE_REF.match(title) else 15
+    elif _has_ref(text):
+        total += 40
+    total += 10 * _keyword_hits(title, keywords)
+    total += _recency_bonus(item.get("published", ""))
+    return total
 
 
 def triage(items, keywords=None):
@@ -58,11 +106,19 @@ def triage(items, keywords=None):
 
 
 def is_verifiable(item):
-    """True quando o item pode ser checado (link ou conteúdo verificável)."""
-    if item.get("link"):
+    """True quando o título/resumo traz algo checável: referência a
+    proposição, número/data/citação extraível ou palavra-chave
+    política NO TÍTULO. Link sozinho não basta (o pipeline não lê o
+    artigo). Palavra-chave só no resumo não conta: é menção de
+    passagem ("o governador lamentou...") numa notícia de crime ou
+    acidente, não o assunto do item."""
+    title = item.get("title", "") or ""
+    text = f"{title} {item.get('summary', '') or ''}"
+    if _has_ref(text):
         return True
-    text = f"{item.get('title', '')} {item.get('summary', '')}"
-    return bool(extract_candidates(text))
+    if extract_candidates(text):
+        return True
+    return _keyword_hits(title) > 0
 
 
 def triage_and_filter(items, keywords=None):
