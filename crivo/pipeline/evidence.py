@@ -1,13 +1,13 @@
-"""Evidências (etapa 4 do pipeline, M3).
+"""Evidências (etapa 4 do pipeline, M3 + busca primária #47).
 
-Fonte de evidência nesta versão: o próprio banco de fatos — boatos
-reciclados. Quando uma alegação já foi verificada antes (mesmo texto,
-ignorando caixa, acentos e pontuação), o veredito anterior vira
-evidência, com link para a análise original.
+Fontes de evidência, nesta ordem:
+1. o próprio banco de fatos — boatos reciclados (M3);
+2. APIs de dados abertos da Câmara e do Senado ao vivo (ver
+   `evidence_search.py`) — fonte primária para alegações sobre
+   proposições.
 
-Busca de fontes primárias externas ao vivo é trabalho futuro. O M3 não
-inventa evidência: sem prova, a alegação fica sem_evidencia e a trava
-do centro segura o veredito em Inconclusivo.
+Sem prova, a alegação fica sem_evidencia e a trava do centro segura
+o veredito em Inconclusivo. O M3 não inventa evidência.
 """
 
 import hashlib
@@ -15,13 +15,17 @@ import re
 import unicodedata
 
 
-def fingerprint(text):
-    """Identificador estável de uma alegação (caixa, acentos e pontuação fora)."""
+def normalize(text):
+    """Texto sem caixa, acentos e pontuação — para comparar alegações."""
     norm = unicodedata.normalize("NFKD", (text or "").lower())
     norm = "".join(c for c in norm if not unicodedata.combining(c))
     norm = re.sub(r"[^a-z0-9 ]+", " ", norm)
-    norm = re.sub(r"\s+", " ", norm).strip()
-    return hashlib.sha256(norm.encode("utf-8")).hexdigest()
+    return re.sub(r"\s+", " ", norm).strip()
+
+
+def fingerprint(text):
+    """Identificador estável de uma alegação (caixa, acentos e pontuação fora)."""
+    return hashlib.sha256(normalize(text).encode("utf-8")).hexdigest()
 
 
 def find_previous_verdict(conn, fp):
