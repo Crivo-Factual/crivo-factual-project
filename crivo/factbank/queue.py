@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS queue (
   url TEXT,
   title TEXT NOT NULL,
   summary TEXT,
+  image_url TEXT NOT NULL DEFAULT '',
   published_at TEXT,
   score INTEGER NOT NULL DEFAULT 0,
   content_hash TEXT NOT NULL UNIQUE,
@@ -37,6 +38,9 @@ CREATE TABLE IF NOT EXISTS queue (
 
 def init_queue(conn):
     conn.executescript(SCHEMA)
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(queue)").fetchall()]
+    if "image_url" not in cols:
+        conn.execute("ALTER TABLE queue ADD COLUMN image_url TEXT NOT NULL DEFAULT ''")
     conn.commit()
 
 
@@ -59,14 +63,15 @@ def enqueue(conn, items, now=None, max_pending=MAX_PENDING):
             continue
         try:
             conn.execute(
-                "INSERT INTO queue (source, url, title, summary, published_at,"
-                " score, content_hash, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO queue (source, url, title, summary, image_url,"
+                " published_at, score, content_hash, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     item.get("source", ""),
                     item.get("link") or None,
                     item.get("title", ""),
                     item.get("summary", ""),
+                    item.get("image_url", ""),
                     item.get("published", ""),
                     item.get("_score", 0),
                     content_hash(
@@ -95,7 +100,7 @@ def claim_next(conn, now=None):
     """
     now = now or datetime.now(timezone.utc).isoformat()
     row = conn.execute(
-        "SELECT id, source, url, title, summary, published_at, score, attempts"
+        "SELECT id, source, url, title, summary, image_url, published_at, score, attempts"
         " FROM queue WHERE status = 'pending'"
         " AND (next_retry_at IS NULL OR next_retry_at <= ?)"
         " ORDER BY score DESC, created_at ASC LIMIT 1",
@@ -105,7 +110,7 @@ def claim_next(conn, now=None):
         return None
     conn.execute("UPDATE queue SET status = 'processing' WHERE id = ?", (row[0],))
     conn.commit()
-    keys = ("id", "source", "url", "title", "summary", "published_at", "score", "attempts")
+    keys = ("id", "source", "url", "title", "summary", "image_url", "published_at", "score", "attempts")
     return dict(zip(keys, row))
 
 
