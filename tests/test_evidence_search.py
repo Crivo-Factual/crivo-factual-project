@@ -41,6 +41,42 @@ def senado_fetch(ementa, tramitando="Sim", found=True):
     return fetch
 
 
+def camara_fetch_multi(records):
+    """Vários registros para a mesma referência (tipo ambíguo).
+
+    records: lista de (ementa, situacao, uri)."""
+    def fetch(url):
+        dados = [{
+            "id": i + 1,
+            "uri": uri,
+            "ementa": ementa,
+            "statusProposicao": {"descricaoSituacao": situacao, "descricaoTramitacao": None},
+        } for i, (ementa, situacao, uri) in enumerate(records)]
+        return json.dumps({"dados": dados}).encode()
+    return fetch
+
+
+def camara_fetch_paged(pages):
+    """Uma página por chamada: pages é {pagina: [ementas]}.
+
+    Todas as páginas menos a última trazem links.next."""
+    def fetch(url):
+        import re as _re
+        m = _re.search(r"pagina=(\d+)", url)
+        pagina = int(m.group(1)) if m else 1
+        dados = [{
+            "id": i + 1,
+            "uri": f"https://dadosabertos.camara.leg.br/api/v2/proposicoes/{pagina}{i}",
+            "ementa": ementa,
+            "statusProposicao": {"descricaoSituacao": None, "descricaoTramitacao": None},
+        } for i, ementa in enumerate(pages.get(pagina, []))]
+        links = []
+        if pagina < max(pages):
+            links = [{"rel": "next", "href": url.replace(f"pagina={pagina}", f"pagina={pagina + 1}")}]
+        return json.dumps({"dados": dados, "links": links}).encode()
+    return fetch
+
+
 def failing_fetch(url):
     raise urllib.error.URLError("sem rede")
 
@@ -119,6 +155,58 @@ class TestEvidenceSearch(unittest.TestCase):
         s.search_claim("PL 5832/2026 — Institui o Programa Primeiro Negócio")
         s.search_claim("PL 5832/2026 — Institui o Programa Primeiro Negócio")
         self.assertEqual(len(calls), 1)
+
+    def test_ementa_do_segundo_registro_confirma(self):
+        s = ev.Searcher(camara=ev.CamaraClient(camara_fetch_multi([
+            ("Altera a Lei de Aeronáutica", None, "https://x/1"),
+            ("Institui tratamento tributário diferenciado para os profissionais de segurança pública",
+             None, "https://x/2"),
+        ])), senado=ev.SenadoClient(senado_fetch("x", found=False)))
+        r = s.search_claim(
+            "EMC 1/2026 institui tratamento tributário diferenciado "
+            "para os profissionais de segurança pública"
+        )
+        self.assertEqual(r["status"], "confirmada")
+        self.assertEqual(r["source_url"], "https://x/2")
+
+    def test_ambigua_status_sem_ementa_nao_decide(self):
+        s = ev.Searcher(camara=ev.CamaraClient(camara_fetch_multi([
+            ("Ementa qualquer", "Aprovada", "https://x/1"),
+            ("Outra ementa qualquer", None, "https://x/2"),
+        ])), senado=ev.SenadoClient(senado_fetch("x", found=False)))
+        # O status é da primeira EMC, mas nada liga a alegação a ela.
+        self.assertIsNone(s.search_claim("EMC 1/2026 foi aprovada na Câmara"))
+
+    def test_ambigua_status_usa_registro_da_ementa(self):
+        s = ev.Searcher(camara=ev.CamaraClient(camara_fetch_multi([
+            ("Institui o Programa Primeiro Negócio", "Rejeitada", "https://x/1"),
+            ("Institui tratamento tributário diferenciado", "Aprovada", "https://x/2"),
+        ])), senado=ev.SenadoClient(senado_fetch("x", found=False)))
+        r = s.search_claim(
+            "EMC 1/2026, que institui tratamento tributário diferenciado, "
+            "foi aprovada na Câmara"
+        )
+        self.assertEqual(r["status"], "confirmada")
+        self.assertEqual(r["source_url"], "https://x/2")
+
+    def test_search_all_pagina_ate_alvo(self):
+        client = ev.CamaraClient(camara_fetch_paged({
+            1: ["Ementa da página 1"],
+            2: ["Institui tratamento tributário diferenciado"],
+        }))
+        records = client.search_all("EMC", "1", "2026")
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[1]["ementa"],
+                         "Institui tratamento tributário diferenciado")
+        # search() continua devolvendo só o primeiro registro.
+        self.assertEqual(client.search("EMC", "1", "2026")["ementa"],
+                         "Ementa da página 1")
+
+    def test_artigo_antes_da_referencia_nao_quebra_contencao(self):
+        s = ev.Searcher(camara=ev.CamaraClient(camara_fetch("Institui o Programa Primeiro Negócio")),
+                        senado=ev.SenadoClient(senado_fetch("x", found=False)))
+        r = s.search_claim("O PL 5832/2026 institui o Programa Primeiro Negócio")
+        self.assertEqual(r["status"], "confirmada")
 
 
 if __name__ == "__main__":
