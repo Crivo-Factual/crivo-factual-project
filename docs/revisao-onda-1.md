@@ -143,3 +143,18 @@ funciona e nunca confirmou nada falso — o limite é a mistura de
 alegações da fila, não o motor. Próximos caminhos: extração por LLM
 (precisa de `GROQ_API_KEY`), busca no corpus oficial coletado e DOU
 por download da edição. Issue #47 segue aberta com os números.
+
+## Decisão registrada (12/11/2026, ~18:38 UTC)
+
+**Inconclusivo é a resposta correta para notícia sem referência.**
+O aceite da #47 foi reescrito pelo idealizador: não "inconclusivos
+abaixo de 50% no geral" (inalcançável no mix de feed — notícia de
+crime, local e bastidor não tem fonte primária), mas "prova como
+maioria entre os itens COM referência" e "zero falsas confirmações".
+Medido no dia (113 itens com veredito): **com ref, 23 de 26 com
+prova (88%); sem ref, 87 de 87 Inconclusivo (100%), 0 com prova.**
+A busca primária ao vivo existe e funciona (Câmara, Senado, DOU) —
+o limite era a mistura, não o motor. **Issue #47 fechada** com esse
+aceite reframado. A Onda 1 segue aberta nos critérios restantes:
+viralização ainda é proxy (sem API paga do X) e a taxa de correção
+ainda não é mensurável (0 correções).
