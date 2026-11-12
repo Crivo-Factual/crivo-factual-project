@@ -25,6 +25,14 @@ class TestExtraction(unittest.TestCase):
         self.assertEqual(cands[0]["kind"], "proposição")
         self.assertEqual(cands[0]["text"], "PLP 230/2025")
 
+    def test_numero_com_ponto_de_milhar(self):
+        for text, expected in (("PL 1.454/2021", "PL 1.454/2021"),
+                               ("PL 12.345/2026", "PL 12.345/2026"),
+                               ("PL 1454/2021", "PL 1454/2021")):
+            cands = extract_candidates(f"Aprovado o {text}")
+            self.assertEqual(cands[0]["text"], expected, text)
+            self.assertEqual(cands[0]["kind"], "proposição")
+
     def test_html_e_removido_antes_de_extrair(self):
         cands = extract_candidates("<p>Senado aprova PLP 230/2025</p> com 50% dos votos")
         texts = [c["text"] for c in cands]
