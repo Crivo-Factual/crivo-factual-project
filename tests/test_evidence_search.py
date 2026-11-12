@@ -303,6 +303,15 @@ class TestEvidenceSearch(unittest.TestCase):
         self.assertIsNone(r)
         self.assertEqual(fake_dou.calls, [])
 
+    def test_mp3_nao_vira_ato_no_dou(self):
+        fake_dou = FakeDou({})
+        s = ev.Searcher(
+            camara=ev.CamaraClient(failing_fetch),
+            senado=ev.SenadoClient(failing_fetch),
+            dou=fake_dou)
+        self.assertIsNone(s.search_claim("O arquivo MP3 toca no rádio"))
+        self.assertEqual(fake_dou.calls, [])
+
 
 if __name__ == "__main__":
     unittest.main()
