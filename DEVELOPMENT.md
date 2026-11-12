@@ -104,6 +104,43 @@ frescos da fila viram maioria Inconclusivo até as fontes de evidência
 crescerem — o motor nunca inventa prova. Cada novo veredito da mesma
 publicação incrementa a versão (histórico em `verdicts`).
 
+## Distribuição e observabilidade (M4)
+
+Cada análise publicada gera as 3 mensagens do formato único (foto do
+assunto + resumo curto + link no fim), uma por canal, salvas no outbox
+(tabela `distribution`):
+
+```bash
+python3 scripts/run_distribute.py            # prepara as mensagens
+python3 scripts/run_distribute.py --list     # lista as pendentes
+python3 scripts/run_distribute.py --mark-sent 12  # confirma postagem manual
+python3 scripts/run_dashboard.py             # gera site/dashboard.html
+python3 scripts/run_newsletter.py            # gera outbox/boletim-AAAA-MM-DD.md
+```
+
+- **Instagram:** o cliente da Graph API (`crivo/pipeline/instagram.py`)
+  publica de verdade com `--live`, mas exige conta empresarial, app
+  Meta e token (`IG_USER_ID`, `IG_ACCESS_TOKEN` no `.env`). Sem
+  credencial ou sem imagem pública, a mensagem fica pendente para
+  postagem manual. Nada é postado sem `--live`.
+- **X:** manual e racionado por desenho (post com link custa US$ 0,20
+  na API paga): o distribuidor prepara no máximo `X_DAILY_CAP` posts
+  por dia (padrão 3) e registra o custo de cada um. O pleito de
+  Public Utility App (classificação do X que isenta taxas para
+  utilidade pública) é uma tentativa paralela: pedir no portal de
+  desenvolvedores do X, na categoria de utilidade pública, sem contar
+  com a aprovação.
+- **WhatsApp:** o texto do Canal fica pronto no outbox para postagem
+  manual (gratuita). Broadcast automático pela Business API é pago
+  desde a 1ª mensagem de marketing; a franquia gratuita cobre só
+  1.000 mensagens de serviço por mês por número.
+- **Auditoria:** cada decisão (coleta, veredito, mensagem preparada,
+  mensagem enviada, boletim) entra em `audit_log`, encadeada por hash
+  — `verify_chain` detecta qualquer alteração posterior.
+- **Boletim semanal:** o arquivo é gerado pronto para envio; o envio
+  por e-mail usa tier gratuito (Resend/Brevo) e ainda não está ligado
+  — falta `RESEND_API_KEY` e um remetente com domínio verificado.
+
 ## Regras do esqueleto
 
 - Nenhum segredo no código. Chaves futuras entram por `.env`
