@@ -175,6 +175,15 @@ para **Verdadeiro (91,7%)**, 3 de 4 alegações confirmadas na ementa
 do registro exato; a 4ª é paráfrase e fica sem evidência, como manda
 a regra conservadora.
 
+O pipeline busca o texto completo do artigo na hora do veredito
+(`crivo/pipeline/article.py`, 12/11/2026): só para fontes de notícia
+com link; falha de rede volta para título+resumo. A extração usa
+HTMLParser, não regex — o g1 embute um JSON enorme num atributo
+data-props e o JSON contém `>` dentro de strings, o que despejava o
+JSON como texto (caso real q294: alegações "recommendationSummary",
+"cropOptions", UUIDs). Widgets de cotação são ignorados (o ticker
+virava alegação de número solto).
+
 Triagem corrigida em 12/11/2026: 213 pendentes → 107 mantidos
 (re-score) e 106 descartados (g1 72, poder360 8, camara_proposicoes
 26 — estes últimos com ano 0 ou tipo fora do padrão, ref quebrada).
@@ -212,10 +221,24 @@ descartados (g1 17, poder360 4). **Rodada de notícias pós-troca:
 contra 0 de 10 antes. Os 4 inconclusivos restantes são itens que
 não nomeiam a proposição ("Congresso aprova projeto que autoriza
 governo a usar R$ 26 bilhões...") — a ref está no corpo do artigo,
-não no resumo. Próximo caminho: buscar o texto completo do artigo.
-No dia: 88 vereditos, 65 Inconclusivo (74%), 11 Predominantemente
-verdadeiro, 12 Verdadeiro — o dia segue carregando os vereditos
-pré-correção; a taxa da rodada atual é 60% com prova.
+não no resumo. No dia: 88 vereditos, 65 Inconclusivo (74%), 11
+Predominantemente verdadeiro, 12 Verdadeiro — o dia segue carregando
+os vereditos pré-correção; a taxa da rodada atual é 60% com prova.
+
+Texto completo do artigo (12/11/2026): implementado e medido.
+**Resultado: 0 de 4 inconclusivos viraram e a rodada fresca foi 10
+de 10 Inconclusivo.** O diagnóstico: os jornalistas não imprimem a
+referência completa no corpo — escrevem "o projeto", "a medida
+provisória", "medida provisória número 1373" (sem ano; e a MPV
+1373/2026 é o Desenrola Adimplentes, não a renegociação de dívidas
+rurais — a ementa protege contra confirmação errada). A busca do
+artigo funciona (texto limpo nos 3 portais, refs encontradas quando
+a matéria as imprime, ex.: PLP 299/2026 em artigos de texto do
+Senado), mas o gargalo agora é a referência incompleta, não o
+acesso ao texto. No dia: 102 vereditos, 79 Inconclusivo (77%), 11
+Predominantemente verdadeiro, 12 Verdadeiro. Próximos caminhos:
+referências sem ano (tentar ano da matéria e ano anterior, com a
+ementa como desambiguador) ou DOU por download da edição.
 
 Avaliado e adiado: DOU não tem API pública de consulta (só portal
 web e WS-INCom de publicação); IBGE/SIDRA responde, mas falta o mapa
