@@ -81,8 +81,11 @@ class TestTriage(unittest.TestCase):
                 "source": "senado_tramitando", "published": ""}
         with_ementa = {"title": "PL 05827/2026 — Dispõe sobre jornada",
                        "summary": "", "source": "senado_tramitando", "published": ""}
+        dotted = {"title": "PL 1.454/2021", "summary": "",
+                  "source": "senado_tramitando", "published": ""}
         self.assertEqual(triage.score(bare), 5)
         self.assertEqual(triage.score(with_ementa), 15)
+        self.assertEqual(triage.score(dotted), 5)
 
     def test_palavra_chave_so_no_resumo_nao_infla(self):
         # Menção de passagem no resumo não é o assunto do item.
