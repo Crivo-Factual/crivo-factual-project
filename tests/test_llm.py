@@ -39,7 +39,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         length = int(self.headers.get("Content-Length", 0))
-        self.rfile.read(length)  # consome o corpo (formato validado pelo mock)
+        self.server.last_body = self.rfile.read(length)
         self.send_response(self.status)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
@@ -96,6 +96,60 @@ class TestLLM(unittest.TestCase):
         with mock.patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(ValueError):
                 llm_mod.GroqClient(api_key=None)
+
+    def test_prompt_pede_lingua_e_referencia(self):
+        self.assertIn("mesma língua do texto de origem", llm_mod.SYSTEM_PROMPT)
+        self.assertIn("sigla, o número e o ano", llm_mod.SYSTEM_PROMPT)
+        self.assertIn("Nunca devolva URLs ou fragmentos de HTML", llm_mod.SYSTEM_PROMPT)
+
+    def test_input_e_limpo_de_html_antes_de_enviar(self):
+        llm_mod.extract_with_llm(
+            '<p>Senado aprova o PL 1159/2026</p> <img src="https://x.com/f.jpg">',
+            self._client(),
+        )
+        body = json.loads(self.server.last_body.decode("utf-8"))
+        user_msg = body["messages"][1]["content"]
+        self.assertNotIn("<", user_msg)
+        self.assertNotIn("http", user_msg)
+        self.assertIn("PL 1159/2026", user_msg)
+
+    def test_url_e_html_da_resposta_sao_filtrados(self):
+        Handler.response_body = json.dumps(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "claims": [
+                                        {
+                                            "text": "O Senado aprovou o PL 1159/2026",
+                                            "kind": "fact",
+                                        },
+                                        {
+                                            "text": "https://s2-g1.glbimg.com/abc",
+                                            "kind": "fact",
+                                        },
+                                        {
+                                            "text": "trecho <br /> quebrado",
+                                            "kind": "fact",
+                                        },
+                                    ]
+                                }
+                            )
+                        }
+                    }
+                ]
+            }
+        ).encode()
+        try:
+            claims = llm_mod.extract_with_llm("texto", self._client())
+            self.assertEqual(
+                claims,
+                [{"text": "O Senado aprovou o PL 1159/2026", "kind": "fact"}],
+            )
+        finally:
+            Handler.response_body = json.dumps(CANNED).encode()
 
 
 if __name__ == "__main__":
