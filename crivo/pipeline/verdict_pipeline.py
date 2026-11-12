@@ -1,7 +1,11 @@
 """Orquestração do M3: fila -> extração -> evidências -> veredito -> publicação.
 
 Regras de segurança do pipeline:
-- A primeira alegação extraída é tratada como central (heurística v0.1).
+- A alegação central é a mais verificável, não a primeira do texto
+  (heurística v0.1 era "a primeira é a central"): proposição, ato do
+  DOU, afirmação do LLM ou citação — número, valor e data soltos
+  nunca são central (caso real: "12/11/2026" virou central e travou
+  o veredito em Inconclusivo). Ver choose_central_index.
 - Sem evidência, a alegação fica sem_evidencia e a trava do centro
   segura o veredito em Inconclusivo. Nada é publicado como Verdadeiro
   ou Falso sem prova.
@@ -22,13 +26,39 @@ from .extraction import extract_candidates
 from .llm import extract_with_llm
 
 
+def choose_central_index(unique, rules_texts):
+    """Índice da alegação central.
+
+    Ordem: (1) proposição ou ato do DOU — têm registro oficial;
+    (2) a primeira afirmação do LLM — o prompt exige sujeito,
+    predicado e valor, então é uma alegação de verdade (o `kind` que
+    o modelo devolve não é confiável, por isso a origem é o texto:
+    tudo que não veio das regras veio do LLM); (3) citação; (4) o
+    primeiro candidato, só quando não há mais nada — valor,
+    percentual e data soltos nunca são central se houver alternativa.
+    """
+    for i, cand in enumerate(unique):
+        if cand.get("kind") in ("proposição", "ato"):
+            return i
+    for i, cand in enumerate(unique):
+        if cand["text"] not in rules_texts:
+            return i
+    for i, cand in enumerate(unique):
+        if cand.get("kind") == "citação":
+            return i
+    return 0
+
+
 def process_item(conn, queue_item, llm_client=None, site_dir=None,
                  searcher=None, evidence_enabled=True, article_fetcher=None):
     """Processa um item da fila e devolve o resultado do veredito."""
     text = article_mod.get_item_text(queue_item, fetcher=article_fetcher)
-    candidates = extract_candidates(text)
-    if llm_client is not None:
-        candidates = candidates + extract_with_llm(text, llm_client)
+    rules = extract_candidates(text)
+    llm_claims = (
+        extract_with_llm(text, llm_client) if llm_client is not None else []
+    )
+    candidates = rules + llm_claims
+    rules_texts = {cand["text"] for cand in rules}
     seen = set()
     unique = []
     for cand in candidates:
@@ -47,6 +77,7 @@ def process_item(conn, queue_item, llm_client=None, site_dir=None,
     claim_objs = []
     evidences = []
     recycled_from = None
+    central_idx = choose_central_index(unique, rules_texts)
     for i, cand in enumerate(unique):
         prev = evidence.find_previous_verdict(
             conn, evidence.fingerprint(cand["text"])
@@ -79,8 +110,8 @@ def process_item(conn, queue_item, llm_client=None, site_dir=None,
         claim_objs.append(
             vmod.Claim(
                 text=cand["text"],
-                weight=3 if i == 0 else 1,
-                central=(i == 0),
+                weight=3 if i == central_idx else 1,
+                central=(i == central_idx),
                 status=status,
             )
         )
