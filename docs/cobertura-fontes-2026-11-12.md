@@ -99,3 +99,16 @@ inalcançável nesse mix de feed, qualquer que seja o número de fontes.
   índice — os resumos eram só uma tag `<img>`; antes geravam páginas
   Inconclusivo com alegações lixo. Itens sem conteúdo real agora
   saem da fila como fora de escopo, sem página.
+
+## Desambiguação EMC/PAR/SBT (12/11/2026)
+
+- O mesmo "EMC 1/2026" tem **132 registros** na Câmara; o certo
+  estava na página 2. O cliente pagina (`itens=100`, até 3 páginas)
+  e testa a ementa de cada registro; status de tipo ambíguo só vale
+  do registro cuja ementa a alegação cita.
+- Artigo inicial ("O EMC 1/2026 institui...") é removido antes da
+  contenção — sem isso, a alegação verbatim não casava com a ementa.
+- Medido (q271, versão 3): **Verdadeiro 91,7%** (era 75%) — 3 de 4
+  alegações confirmadas na ementa do registro exato; a 4ª é
+  paráfrase e fica sem evidência. No dia: 56 vereditos, 4 Verdadeiro,
+  2 Predominantemente verdadeiro, 50 Inconclusivo (89%).
