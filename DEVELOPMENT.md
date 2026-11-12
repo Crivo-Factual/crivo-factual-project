@@ -72,12 +72,17 @@ python3 scripts/run_collectors.py --loop 900 # repete a cada 15 min
 ```
 
 A coleta alimenta a fila persistente (`queue` no SQLite): cada item
-recebe score de triagem e só o verificável entra (tem link ou traz
-número, data ou citação no título/resumo). Duplicatas são descartadas
-por hash de conteúdo. Falha de uma fonte não derruba as demais. A fila
-tem teto de 500 pendentes (backpressure) e retry com backoff
-exponencial (1, 2, 4, 8 e 16 minutos, teto de 1h; após 5 tentativas o
-item fica `failed`).
+recebe score de triagem e só o verificável entra — referência a
+proposição, número/data/citação extraível ou palavra-chave política
+no título (corrigido em 12/11/2026; antes, ter link bastava, e a fila
+encheu de notícia geral sem nada checável). Prioridade: notícia com
+referência (40) > notícia política (10 por palavra-chave no título)
+> listagem com ementa (15) > ref solta (5), mais bônus de recência.
+Listagens cruas de proposições ficam no fim da fila. Duplicatas são
+descartadas por hash de conteúdo. Falha de uma fonte não derruba as
+demais. A fila tem teto de 500 pendentes (backpressure) e retry com
+backoff exponencial (1, 2, 4, 8 e 16 minutos, teto de 1h; após 5
+tentativas o item fica `failed`).
 
 ## Vereditos (M3)
 
@@ -163,8 +168,19 @@ verbatim não casa com a ementa. Medido no teste dirigido (EMC
 1/2026, q271): veredito foi de Predominantemente verdadeiro (75%)
 para **Verdadeiro (91,7%)**, 3 de 4 alegações confirmadas na ementa
 do registro exato; a 4ª é paráfrase e fica sem evidência, como manda
-a regra conservadora. Próximos caminhos: busca no corpus oficial já
-coletado e DOU por download da edição (XML/ZIP).
+a regra conservadora.
+
+Triagem corrigida em 12/11/2026: 213 pendentes → 107 mantidos
+(re-score) e 106 descartados (g1 72, poder360 8, camara_proposicoes
+26 — estes últimos com ano 0 ou tipo fora do padrão, ref quebrada).
+Rodada pós-triagem (10 itens): **9 com prova** (6 Verdadeiro, 3
+Predominantemente verdadeiro), 1 Inconclusivo. Ressalva honesta: 5
+dos 9 são listagens de ref solta, que verificam por existência
+(100% trivial). No dia: 66 vereditos, 51 Inconclusivo (77%), 5
+Predominantemente verdadeiro, 10 Verdadeiro. Aceite segue não
+atingido no dia, mas a rodada pós-triagem é 90% com prova. Próximo
+achado: números de proposição com ponto de milhar ("PL 1.454/2021")
+não casam o padrão de referência — normalizar na extração/busca.
 
 Avaliado e adiado: DOU não tem API pública de consulta (só portal
 web e WS-INCom de publicação); IBGE/SIDRA responde, mas falta o mapa
