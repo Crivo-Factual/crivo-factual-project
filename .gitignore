@@ -223,3 +223,6 @@ __marimo__/
 # Gerados pelo esqueleto M1 (demo local)
 site/
 *.db
+
+# Gerados pelo M4 (outbox de distribuição e boletins)
+outbox/
