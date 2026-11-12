@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS claims (
   weight INTEGER NOT NULL DEFAULT 1,
   central INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'sem_evidencia',
+  fingerprint TEXT,
   CHECK (status IN ('confirmada', 'contraditada', 'sem_evidencia'))
 );
 
