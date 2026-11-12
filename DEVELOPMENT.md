@@ -100,6 +100,18 @@ ambiente (`via_vault=True` em `crivo/pipeline/llm.py`). O modelo só
 extrai e localiza alegações; o veredito continua determinístico. Sem
 chave, o pipeline segue só com regras e avisa.
 
+Extração corrigida em 12/11/2026 (sonda de cobertura, #47): o resumo
+de RSS traz HTML, e o padrão de citação casava atributos (`src=`) —
+URLs de imagem viravam "alegação" (12% do banco). `clean_text()` em
+`crivo/pipeline/extraction.py` tira as tags antes de extrair (regras
+e LLM) e a saída do LLM é filtrada (sem URL/HTML). O prompt exige
+alegações autocontidas na língua do texto (antes o modelo traduzia
+para o inglês, o que quebrava a confirmação por contenção na ementa)
+e, quando o texto menciona uma proposição, a sigla, o número e o ano
+na alegação. Medido na rodada pós-correção: 0 alegações lixo e 0 em
+inglês; o teste dirigido (EMC 1/2026) extraiu 3 alegações em pt-BR
+com a referência e o veredito foi Predominantemente verdadeiro (75%).
+
 Evidências nesta versão vêm do próprio banco de fatos: uma alegação
 igual a outra já verificada (mesmo texto, ignorando caixa, acentos e
 pontuação) herda o status anterior, com link para a análise original
@@ -133,9 +145,20 @@ Medido ao vivo em 12/11/2026: cobertura de ~10% dos itens (4/40 na
 sonda); 3 Verdadeiros com prova primária nas duas primeiras rodadas
 de 10 (8% dos vereditos do dia). O aceite da issue (<50%
 inconclusivos, prova como maioria) NÃO foi atingido — a maioria dos
-itens da fila não traz proposição nem alegação extraível. Próximos
-caminhos: extração por LLM (precisa de `GROQ_API_KEY`), busca no
-corpus oficial já coletado e DOU por download da edição (XML/ZIP).
+itens da fila não traz proposição nem alegação extraível.
+
+Sonda de cobertura completa em `docs/cobertura-fontes-2026-11-12.md`
+(48 itens / 208 alegações): DOU, indicadores, votações e TSE cobrem
+0 — o problema é a alegação chegar sem a informação que a fonte
+precisa, não a falta de fontes. Limite encontrado no teste dirigido:
+**EMC, PAR e SBT não são identificadores únicos** — são numerados
+por proposição, e a API da Câmara devolve até 5 registros
+diferentes para o mesmo "EMC 1/2026"; o cliente usa o primeiro
+(`dados[0]`), então a confirmação por ementa falha quando o registro
+certo não é o primeiro. Para esses tipos, a busca precisa testar a
+ementa de cada registro retornado. Próximos caminhos: desambiguação
+por ementa (EMC/PAR/SBT), busca no corpus oficial já coletado e DOU
+por download da edição (XML/ZIP).
 
 Avaliado e adiado: DOU não tem API pública de consulta (só portal
 web e WS-INCom de publicação); IBGE/SIDRA responde, mas falta o mapa
