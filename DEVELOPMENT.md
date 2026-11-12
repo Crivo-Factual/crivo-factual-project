@@ -178,9 +178,21 @@ Predominantemente verdadeiro), 1 Inconclusivo. Ressalva honesta: 5
 dos 9 são listagens de ref solta, que verificam por existência
 (100% trivial). No dia: 66 vereditos, 51 Inconclusivo (77%), 5
 Predominantemente verdadeiro, 10 Verdadeiro. Aceite segue não
-atingido no dia, mas a rodada pós-triagem é 90% com prova. Próximo
-achado: números de proposição com ponto de milhar ("PL 1.454/2021")
-não casam o padrão de referência — normalizar na extração/busca.
+atingido no dia, mas a rodada pós-triagem é 90% com prova.
+
+Normalização de ponto de milhar (12/11/2026): "PL 1.454/2021" não
+casava o padrão de referência e a alegação nem chegava a ser
+buscada. O padrão aceita o ponto (`1.454`, `12.345`) e o buscador
+consulta sem ele (`numero=1454`). Detalhe encontrado no teste ao
+vivo: a mesma proposição tem redações de ementa diferentes na Câmara
+e no Senado — a busca agora consulta as duas casas e confirma se
+qualquer uma casar (antes, parava na primeira com registro). Medido
+(q70, versão 2): de Predominantemente verdadeiro (75%) para
+**Verdadeiro (81,25%)** — as refs com ponto viraram alegações e
+confirmaram; as 3 alegações de conteúdo seguem sem evidência porque
+afirmam aprovação e a API do Senado não expõe situação descritiva
+(só existência, ementa e IndicadorTramitando). No dia: 67 vereditos,
+51 Inconclusivo (76%), 5 Predominantemente verdadeiro, 11 Verdadeiro.
 
 Avaliado e adiado: DOU não tem API pública de consulta (só portal
 web e WS-INCom de publicação); IBGE/SIDRA responde, mas falta o mapa
