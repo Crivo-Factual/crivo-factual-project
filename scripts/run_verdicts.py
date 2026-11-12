@@ -30,6 +30,10 @@ def main():
         "--loop", type=int, default=0, metavar="SEGUNDOS",
         help="repete a cada N segundos (0 = uma passada)",
     )
+    parser.add_argument(
+        "--no-evidence", action="store_true",
+        help="desliga a busca primária ao vivo (#47); só banco de fatos",
+    )
     args = parser.parse_args()
     client = None
     if args.llm:
@@ -43,7 +47,8 @@ def main():
     while True:
         print(f"--- vereditos {datetime.now(timezone.utc).isoformat()} ---")
         results = verdict_pipeline.process_queue(
-            conn, limit=args.limit, llm_client=client, site_dir=config.SITE_DIR
+            conn, limit=args.limit, llm_client=client, site_dir=config.SITE_DIR,
+            evidence_enabled=not args.no_evidence,
         )
         labels = Counter(r["verdict"][0] for r in results if "verdict" in r)
         print(f"processados: {len(results)} | vereditos: {dict(labels)}")
