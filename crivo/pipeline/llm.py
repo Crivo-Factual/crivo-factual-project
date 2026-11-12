@@ -4,12 +4,15 @@ O modelo só extrai e localiza alegações atômicas; nunca decide. O
 veredito continua determinístico (ver crivo/pipeline/verdict.py).
 
 Provedor padrão: Groq free tier (sem cartão), endpoint compatível com
-OpenAI. A chave vem de GROQ_API_KEY; o modelo, de GROQ_MODEL. Sem
-chave, sem modelo: a extração segue só com regras e o pipeline avisa.
+OpenAI. A chave vem de GROQ_API_KEY, do `.env`, ou do Secure Vault
+(`via_vault=True`, conexão `custom.groq` — ver
+`~/workspace/custom-connectors/custom.groq/CONNECTOR.md`). Sem chave,
+sem modelo: a extração segue só com regras e o pipeline avisa.
 """
 
 import json
 import os
+import sys
 import urllib.request
 
 SYSTEM_PROMPT = (
@@ -25,12 +28,15 @@ class GroqClient:
     """Cliente mínimo da API da Groq (endpoint compatível com OpenAI)."""
 
     def __init__(self, api_key=None, model=None,
-                 base_url="https://api.groq.com/openai/v1", timeout=30):
+                 base_url="https://api.groq.com/openai/v1", timeout=30,
+                 via_vault=False):
+        self.via_vault = via_vault
         self.api_key = api_key or os.environ.get("GROQ_API_KEY", "")
-        if not self.api_key:
+        if not self.api_key and not via_vault:
             raise ValueError(
-                "GROQ_API_KEY não configurada. Defina a variável de ambiente "
-                "ou copie .env.example para .env com a chave do Groq free tier."
+                "GROQ_API_KEY não configurada. Defina a variável de ambiente, "
+                "copie .env.example para .env com a chave do Groq free tier, "
+                "ou use via_vault=True (conexão custom.groq no Secure Vault)."
             )
         self.model = model or os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
         self.base_url = base_url
@@ -52,11 +58,19 @@ class GroqClient:
             self.base_url + "/chat/completions",
             data=body,
             method="POST",
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-            },
+            headers={"Content-Type": "application/json"},
         )
+        if self.via_vault:
+            # A chave real nunca passa por aqui: o runtime troca o
+            # surrogate pela credencial do Secure Vault (custom.groq).
+            sys.path.insert(0, "/opt/muse/skills/custom-connector-setup/bin")
+            from dynamic_credentials import add_surrogate_to_request
+
+            add_surrogate_to_request(
+                req, "custom.groq", allowed_hosts=["api.groq.com"]
+            )
+        else:
+            req.add_header("Authorization", f"Bearer {self.api_key}")
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         return data["choices"][0]["message"]["content"]
