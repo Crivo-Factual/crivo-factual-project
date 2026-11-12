@@ -17,10 +17,12 @@ Regras conservadoras (o motor nunca inventa prova):
 - Qualquer erro de rede ou parse devolve None: a falha isola o item,
   nunca o veredito.
 
-Fora do v0.1 (avaliado e adiado, ver DEVELOPMENT.md): DOU (sem API
-pública de consulta, só portal web) e IBGE/SIDRA (falta o mapa
-alegação → tabela). O Senado não expõe situação descritiva na API —
-só existência, ementa e o flag IndicadorTramitando.
+Fora do v0.1 (avaliado e adiado, ver DEVELOPMENT.md): IBGE/SIDRA
+(falta o mapa alegação → tabela). O DOU entrou em 12/11/2026 (ver
+`dou.py`): a busca web do portal, com a frase exata entre aspas e
+ordenação por relevância, devolve o próprio ato em primeiro. O Senado
+não expõe situação descritiva na API — só existência, ementa e o flag
+IndicadorTramitando.
 """
 
 import json
@@ -29,12 +31,35 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
+from . import dou as dou_mod
 from .evidence import normalize
 
 PROPOSITION_RE = re.compile(
     r"\b(PL|PLS|PEC|MPV|PLP|PDC|PDS|RQS|REQ|MSG|VET|MSF|PRS|PLC|RIC|MSC|PAR|EMC|SBT)"
     r"\s*((?:\d{1,3}(?:\.\d{3})+|\d+))/(\d{4})\b"
 )
+
+# Referência a ato publicado no DOU: "Lei nº 14.973, de 2024",
+# "Emenda Constitucional nº 141, de 2026", "EC 141/2026", "MP 1373"
+# (sem ano). O ano é opcional — o número do ato é único por tipo.
+ACT_RE = re.compile(
+    r"\b(Decreto-Lei|Lei Complementar|Emenda Constitucional|Medida Provisória"
+    r"|Instrução Normativa|Lei|Decreto|Portaria|Resolução|EC|MP|LC)"
+    r"\s*(?:n[ºo°]?\s*)?(\d[\d.]*)(?:\s*[,/]?\s*(?:de\s*)?(\d{4}))?",
+    re.IGNORECASE,
+)
+
+# Status que a existência do ato no DOU implica: uma Lei publicada
+# foi sancionada (ou promulgada após derrubada de veto); uma EC
+# publicada foi promulgada. Decreto, MP e Portaria não implicam
+# "aprovada" — são atos do Executivo. Outro status afirmado não
+# confirma nada (nem contradiz: veto parcial, por exemplo, ainda
+# publica a lei).
+ACT_STATUS_IMPLIED = {
+    "Lei": {"sancionada", "aprovada", "transformada em norma"},
+    "Lei Complementar": {"sancionada", "aprovada", "transformada em norma"},
+    "Emenda Constitucional": {"promulgada", "aprovada"},
+}
 
 # Tipos numerados por proposição, não por ano: o mesmo "EMC 1/2026"
 # existe em centenas de proposições diferentes (132 só na Câmara em
@@ -250,9 +275,10 @@ def _ementa_matches(text, ref_match, ementa):
 class Searcher:
     """Busca com cache por referência (evita repetir a mesma consulta)."""
 
-    def __init__(self, camara=None, senado=None):
+    def __init__(self, camara=None, senado=None, dou=None):
         self.camara = camara or CamaraClient()
         self.senado = senado or SenadoClient()
+        self.dou = dou or dou_mod.DouClient()
         self._cache = {}
 
     def _lookup(self, sigla, numero, ano):
@@ -304,12 +330,49 @@ class Searcher:
                 return record
         return None
 
+    def _search_dou(self, text):
+        """Ato no DOU (Lei/Decreto/EC/MP/...). Só quando a alegação não
+        tem ref de proposição — um ato citado dentro de outra alegação
+        (ex.: a ementa que cita uma lei) não prova a alegação."""
+        m = ACT_RE.search(text or "")
+        if not m:
+            return None
+        act_type = dou_mod.normalize_type(m.group(1))
+        number = m.group(2).replace(".", "")
+        year = int(m.group(3)) if m.group(3) else None
+        claim_status = _detect_status(text)
+        try:
+            hit = self.dou.find_act(act_type, number, year)
+        except Exception:  # noqa: BLE001 - falha do DOU nunca quebra a busca
+            return None
+        if hit is None:
+            if claim_status and _is_federal(text):
+                return {
+                    "status": "contraditada",
+                    "source_name": "Diário Oficial da União — Imprensa Nacional",
+                    "source_url": dou_mod.search_url(act_type, number),
+                    "excerpt": (
+                        f"{act_type} nº {number}"
+                        + (f"/{year}" if year else "")
+                        + " não encontrada no Diário Oficial da União."
+                    ),
+                }
+            return None
+        if claim_status is not None and claim_status not in ACT_STATUS_IMPLIED.get(act_type, set()):
+            return None  # status afirmado que o ato não implica
+        return {
+            "status": "confirmada",
+            "source_name": "Diário Oficial da União — Imprensa Nacional",
+            "source_url": dou_mod.act_url(hit),
+            "excerpt": f"{hit['title']} — Publicado em {hit['pub_date']}.",
+        }
+
     def search_claim(self, text):
         """Busca evidência primária para a alegação. Devolve a evidência
         {status, source_name, source_url, excerpt} ou None."""
         ref = PROPOSITION_RE.search(text or "")
         if not ref:
-            return None
+            return self._search_dou(text)
         sigla, numero, ano = ref.group(1), ref.group(2).replace(".", ""), ref.group(3)
         claim_status = _detect_status(text)
         records, consulted = self._lookup(sigla, numero, ano)
