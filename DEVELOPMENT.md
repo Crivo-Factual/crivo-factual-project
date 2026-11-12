@@ -105,6 +105,38 @@ frescos da fila viram maioria Inconclusivo até as fontes de evidência
 crescerem — o motor nunca inventa prova. Cada novo veredito da mesma
 publicação incrementa a versão (histórico em `verdicts`).
 
+## Busca de evidências primárias ao vivo (#47)
+
+Alegações sobre proposições são conferidas nas APIs de dados abertos
+da Câmara e do Senado (gratuitas, sem chave), em
+`crivo/pipeline/evidence_search.py`:
+
+```bash
+python3 scripts/run_verdicts.py --limit 10   # busca ligada (padrão)
+python3 scripts/run_verdicts.py --limit 10 --no-evidence  # só banco de fatos
+```
+
+Regras conservadoras: status só decide quando a situação oficial
+mapeia com clareza; ementa confirma por contenção do texto na ementa
+oficial; "não encontrada" só contradiz com status federal nomeado;
+qualquer erro de rede vira sem_evidencia, nunca quebra o pipeline.
+A extração ordena a proposição como primeira candidata (a mais
+verificável) — antes, um número solto ("50%") virava a central e a
+trava segurava o veredito mesmo com a proposição confirmada.
+
+Medido ao vivo em 12/11/2026: cobertura de ~10% dos itens (4/40 na
+sonda); 3 Verdadeiros com prova primária nas duas primeiras rodadas
+de 10 (8% dos vereditos do dia). O aceite da issue (<50%
+inconclusivos, prova como maioria) NÃO foi atingido — a maioria dos
+itens da fila não traz proposição nem alegação extraível. Próximos
+caminhos: extração por LLM (precisa de `GROQ_API_KEY`), busca no
+corpus oficial já coletado e DOU por download da edição (XML/ZIP).
+
+Avaliado e adiado: DOU não tem API pública de consulta (só portal
+web e WS-INCom de publicação); IBGE/SIDRA responde, mas falta o mapa
+alegação → tabela; o Senado não expõe situação descritiva na API
+(só existência, ementa e IndicadorTramitando).
+
 ## Distribuição e observabilidade (M4)
 
 Cada análise publicada gera as 3 mensagens do formato único (foto do
