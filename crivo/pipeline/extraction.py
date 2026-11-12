@@ -16,8 +16,12 @@ PERCENT = re.compile(r"\d+(?:[,\.]\d+)?\s?%")
 DATE = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")
 QUOTE = re.compile(r'"([^"]{10,200})"')
 PROPOSITION = re.compile(
-    r"\b(?:PL|PLS|PEC|MPV|PLP|PDC|PDS|RQS|REQ|MSG|VET|MSF|PRS|PLC|RIC|MSC|PAR|EMC|SBT)\s*\d+/\d{4}\b"
+    r"\b(?:PL|PLS|PEC|MPV|PLP|PDC|PDS|RQS|REQ|MSG|VET|MSF|PRS|PLC|RIC|MSC|PAR|EMC|SBT)"
+    r"\s*(?:\d{1,3}(?:\.\d{3})+|\d+)/\d{4}\b"
 )
+# Número com ponto de milhar ("PL 1.454/2021") ou sem ("PL 1454/2021").
+# O padrão antigo (\d+) não casava o ponto e a referência sumia: a
+# alegação ficava sem busca e sem evidência (caso real q70).
 
 
 def clean_text(text):
