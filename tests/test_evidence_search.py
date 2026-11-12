@@ -81,6 +81,26 @@ def failing_fetch(url):
     raise urllib.error.URLError("sem rede")
 
 
+class FakeDou:
+    """DOU de mentira: atos conhecidos por (tipo, número, ano)."""
+
+    def __init__(self, acts=None):
+        self.acts = acts or {}
+        self.calls = []
+
+    def find_act(self, act_type, number, year=None):
+        self.calls.append((act_type, number, year))
+        return self.acts.get((act_type, number, year))
+
+
+def _dou_searcher(acts=None):
+    return ev.Searcher(
+        camara=ev.CamaraClient(failing_fetch),
+        senado=ev.SenadoClient(failing_fetch),
+        dou=FakeDou(acts),
+    )
+
+
 class TestEvidenceSearch(unittest.TestCase):
     def test_ementa_match_confirma(self):
         s = ev.Searcher(camara=ev.CamaraClient(camara_fetch("Institui o Programa Primeiro Negócio")),
@@ -233,6 +253,55 @@ class TestEvidenceSearch(unittest.TestCase):
             "ao café produzido e processado de modo artesanal.")
         self.assertEqual(r["status"], "confirmada")
         self.assertIn("Senado", r["source_name"])
+
+    def test_dou_confirma_ec_promulgada(self):
+        hit = {"title": "EMENDA CONSTITUCIONAL Nº 141",
+               "pub_date": "16/10/2026", "url_title": "emenda-constitucional-n-141-1"}
+        s = _dou_searcher({("Emenda Constitucional", "141", 2026): hit})
+        r = s.search_claim("A Emenda Constitucional nº 141, de 2026, foi promulgada")
+        self.assertEqual(r["status"], "confirmada")
+        self.assertIn("Diário Oficial", r["source_name"])
+
+    def test_dou_confirma_lei_sancionada(self):
+        hit = {"title": "LEI Nº 14.973, DE 16 DE SETEMBRO DE 2024",
+               "pub_date": "16/09/2024", "url_title": "lei-n-14-973-2"}
+        s = _dou_searcher({("Lei", "14973", 2024): hit})
+        r = s.search_claim("A Lei nº 14.973, de 2024, foi sancionada")
+        self.assertEqual(r["status"], "confirmada")
+
+    def test_dou_ato_inexistente_com_status_federal_contradiz(self):
+        s = _dou_searcher({})
+        r = s.search_claim(
+            "A Lei nº 99.999, de 2026, foi sancionada pelo Congresso Nacional")
+        self.assertEqual(r["status"], "contraditada")
+        self.assertIn("Diário Oficial", r["source_name"])
+
+    def test_dou_ato_inexistente_sem_status_nao_decide(self):
+        s = _dou_searcher({})
+        self.assertIsNone(s.search_claim("Lei nº 99.999, de 2026"))
+
+    def test_dou_status_nao_implicado_nao_confirma(self):
+        hit = {"title": "DECRETO Nº 10.954, DE 29 DE JANEIRO DE 2022",
+               "pub_date": "29/01/2022", "url_title": "decreto-n-10-954-3"}
+        s = _dou_searcher({("Decreto", "10954", 2022): hit})
+        # Decreto não é "aprovado" pelo Congresso: o ato existe, mas
+        # o status afirmado não é implicado por ele.
+        self.assertIsNone(s.search_claim("O Decreto nº 10.954, de 2022, foi aprovado"))
+
+    def test_proposicao_nao_cai_no_dou(self):
+        # A alegação tem ref de proposição: o caminho é o das APIs de
+        # dados abertos, mesmo que ela cite uma lei — o DOU nem é
+        # consultado.
+        fake_dou = FakeDou({("Lei", "8629", 1993): {
+            "title": "LEI Nº 8.629, DE 25 DE FEVEREIRO DE 1993",
+            "pub_date": "26/02/1993", "url_title": "lei-n-8-629-4"}})
+        s = ev.Searcher(
+            camara=ev.CamaraClient(camara_fetch("Ementa qualquer que não casa")),
+            senado=ev.SenadoClient(senado_fetch("x", found=False)),
+            dou=fake_dou)
+        r = s.search_claim("O PL 810/2020 altera a Lei nº 8.629, de 1993")
+        self.assertIsNone(r)
+        self.assertEqual(fake_dou.calls, [])
 
 
 if __name__ == "__main__":
