@@ -8,6 +8,7 @@ Os candidatos ainda precisam de evidência (etapas 4 e 5); extração
 não é veredito.
 """
 
+import html
 import re
 
 MONEY = re.compile(r"R\$\s?[\d\.\,]+(?:\s?(?:mil|milhões|bilhões))?")
@@ -17,6 +18,21 @@ QUOTE = re.compile(r'"([^"]{10,200})"')
 PROPOSITION = re.compile(
     r"\b(?:PL|PLS|PEC|MPV|PLP|PDC|PDS|RQS|REQ|MSG|VET|MSF|PRS|PLC|RIC|MSC|PAR|EMC|SBT)\s*\d+/\d{4}\b"
 )
+
+
+def clean_text(text):
+    """Tira markup do texto (resumos de RSS trazem HTML) antes de extrair.
+
+    Sem isso, o padrão de citação casa o valor de atributos
+    (`src="https://..."`) e URLs de imagem viram "alegação" — 12% das
+    alegações do banco em 12/11. O texto limpo é só p/ extração; o
+    resumo original continua guardado na fila.
+    """
+    if not text:
+        return ""
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = html.unescape(text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def extract_candidates(text):
@@ -29,6 +45,7 @@ def extract_candidates(text):
     """
     found = []
     seen = set()
+    text = clean_text(text)
 
     def add(kind, value):
         value = value.strip()
