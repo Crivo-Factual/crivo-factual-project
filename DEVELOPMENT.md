@@ -91,9 +91,12 @@ python3 scripts/run_verdicts.py --limit 10 --loop 900  # repete a cada 15 min
 
 A extração por LLM usa o Groq free tier (sem cartão): copie
 `.env.example` para `.env` com `GROQ_API_KEY` (o modelo vem de
-`GROQ_MODEL`, padrão `llama-3.1-8b-instant`). O modelo só extrai e
-localiza alegações; o veredito continua determinístico. Sem chave, o
-pipeline segue só com regras e avisa.
+`GROQ_MODEL`, padrão `llama-3.1-8b-instant`). Alternativa sem arquivo:
+guarde a chave no Secure Vault (conexão `custom.groq`) e o
+`run_verdicts.py --llm` usa o cofre quando não há `GROQ_API_KEY` no
+ambiente (`via_vault=True` em `crivo/pipeline/llm.py`). O modelo só
+extrai e localiza alegações; o veredito continua determinístico. Sem
+chave, o pipeline segue só com regras e avisa.
 
 Evidências nesta versão vêm do próprio banco de fatos: uma alegação
 igual a outra já verificada (mesmo texto, ignorando caixa, acentos e
