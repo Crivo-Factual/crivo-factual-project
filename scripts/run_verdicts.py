@@ -40,8 +40,12 @@ def main():
         try:
             client = llm_mod.GroqClient()
             print(f"LLM ativo: {client.model} (Groq free tier)")
-        except ValueError as exc:
-            print(f"LLM indisponível ({exc}); seguindo só com regras.")
+        except ValueError:
+            try:
+                client = llm_mod.GroqClient(via_vault=True)
+                print(f"LLM ativo via cofre: {client.model} (Groq free tier)")
+            except ValueError as exc:
+                print(f"LLM indisponível ({exc}); seguindo só com regras.")
     conn = store.init_db(config.DB_PATH, config.SCHEMA_PATH)
     queue_mod.init_queue(conn)
     while True:
