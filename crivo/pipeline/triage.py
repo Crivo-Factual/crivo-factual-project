@@ -3,9 +3,15 @@
 Proxy v0.1 de viralização: recência + sinais de circulação por
 palavras-chave. Não é medição real de viralização (isso exige APIs
 pagas de plataformas); só ordena a fila para a extração.
+
+Verificabilidade (M2): só entra no pipeline o que pode ser checado —
+tem link para a fonte (o texto completo será extraído depois) ou já
+traz no título/resumo algo verificável (número, data, citação).
 """
 
 from datetime import datetime, timezone
+
+from .extraction import extract_candidates
 
 KEYWORDS = [
     "bolsa família", "governo", "lula", "bolsonaro", "congresso", "senado",
@@ -49,3 +55,22 @@ def triage(items, keywords=None):
     scored = [dict(item, _score=score(item, keywords)) for item in items]
     scored.sort(key=lambda i: i["_score"], reverse=True)
     return scored
+
+
+def is_verifiable(item):
+    """True quando o item pode ser checado (link ou conteúdo verificável)."""
+    if item.get("link"):
+        return True
+    text = f"{item.get('title', '')} {item.get('summary', '')}"
+    return bool(extract_candidates(text))
+
+
+def triage_and_filter(items, keywords=None):
+    """Filtra o não verificável e ordena o resto por score.
+
+    Devolve (mantidos, descartados).
+    """
+    kept, dropped = [], []
+    for item in triage(items, keywords):
+        (kept if is_verifiable(item) else dropped).append(item)
+    return kept, dropped
