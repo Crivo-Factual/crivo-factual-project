@@ -5,10 +5,13 @@ palavras-chave. Não é medição real de viralização (isso exige APIs
 pagas de plataformas); só ordena a fila para a extração.
 
 Verificabilidade (M2, corrigida em 12/11/2026): só entra no
-pipeline o que traz no título/resumo algo checável — referência a
-proposição, número, data, citação ou palavra-chave política. Ter
-link NÃO basta: o pipeline só lê título+resumo (nunca busca o texto
-completo do artigo), então um item sem conteúdo extraível no
+pipeline o que traz referência a proposição (título ou resumo) ou
+palavra-chave política NO TÍTULO. Número, data ou citação sozinhos
+NÃO bastam: a rodada de notícias de 12/11 mostrou que eles admitem
+notícia de crime e local ("roubou R$ 12 mil", "70% de desconto") —
+10 de 10 inconclusivos, sem fonte primária possível. Ter link
+também NÃO basta: o pipeline só lê título+resumo (nunca busca o
+texto completo do artigo), então um item sem conteúdo extraível no
 título/resumo sempre sairia como Sem índice. A regra antiga ("link
 basta") deixava entrar notícia geral sem nada checável — 100 dos
 110 itens pendentes do g1 em 12/11 não tinham ref nem palavra-chave.
@@ -23,14 +26,16 @@ no fim da fila e só são processadas sem notícia pendente.
 import re
 from datetime import datetime, timezone
 
-from .extraction import PROPOSITION, extract_candidates
+from .extraction import PROPOSITION
 
 KEYWORDS = [
     "bolsa família", "governo", "lula", "bolsonaro", "congresso", "senado",
     "câmara", "stf", "eleição", "imposto", "salário", "aposentadoria",
     "inss", "pix", "juros", "selic", "combustível", "escala 6x1",
     "deputado", "senador", "ministro", "plenário", "prefeito",
-    "governador", "vereador", "partido",
+    "governador", "vereador", "partido", "reajuste", "orçamento",
+    "fiscal", "votação", "sanção", "veto", "decreto", "polícia federal",
+    "previdência",
 ]
 
 # Fontes que listam proposições (título = referência ou referência +
@@ -107,16 +112,16 @@ def triage(items, keywords=None):
 
 def is_verifiable(item):
     """True quando o título/resumo traz algo checável: referência a
-    proposição, número/data/citação extraível ou palavra-chave
-    política NO TÍTULO. Link sozinho não basta (o pipeline não lê o
-    artigo). Palavra-chave só no resumo não conta: é menção de
-    passagem ("o governador lamentou...") numa notícia de crime ou
-    acidente, não o assunto do item."""
+    proposição ou palavra-chave política NO TÍTULO. Link sozinho não
+    basta (o pipeline não lê o artigo). Número, data ou citação
+    sozinhos também não: sem palavra-chave política, são notícia de
+    crime ou local ("roubou R$ 12 mil", "70% de desconto") — sem
+    fonte primária possível. Palavra-chave só no resumo não conta:
+    é menção de passagem ("o governador lamentou...") numa notícia
+    de crime ou acidente, não o assunto do item."""
     title = item.get("title", "") or ""
     text = f"{title} {item.get('summary', '') or ''}"
     if _has_ref(text):
-        return True
-    if extract_candidates(text):
         return True
     return _keyword_hits(title) > 0
 
