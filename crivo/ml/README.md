@@ -236,16 +236,28 @@ números serem comparáveis. O notebook
 `crivo/ml/hf/bertimbau-colab.ipynb` roda tudo no Colab
 gratuito (GPU T4, 30–60 min, 3 épocas, batch 32, max_len 256).
 
-**Status:** o script foi verificado por smoke test na CPU
-(64 exemplos, 1 época — treino, avaliação e salvamento
-rodaram; os F1 do smoke não valem como métrica, só provam que
-o código funciona). O treino real ainda não rodou — precisa
-da GPU do Colab. Duas incompatibilidades do transformers 5.x
-foram corrigidas no caminho: `warmup_ratio` não existe mais
-(só `warmup_steps`, calculado como 10% dos passos totais) e
-o collator padrão quebra com textos de comprimentos
-diferentes (`DataCollatorWithPadding`). O notebook pinou
-`transformers==5.23.0`, a versão testada.
+**Resultado (treino real, 17/11/2026, GPU T4 do Kaggle — o
+Colab gratuito estava sem GPU disponível; o notebook do Kaggle
+é `crivo/ml/hf/bertimbau-kaggle.ipynb`): artigos F1-macro
+0,9868 (acurácia 0,9868, n=1440) — meta de 0,95 BATIDA, acima
+da v1 (0,9736) e do unificado (0,9646); misto F1-macro 0,8184
+(acurácia 0,8507, n=7319) — o melhor no misto até aqui
+(unificado 0,7924), mas abaixo da meta de 0,95. O misto ficou
+exatamente no teto medido do linear sem as piores fontes
+(0,8183), só que no conjunto COMPLETO — o transformer resolveu
+o problema das fontes `true` e `MuMiN-PT` que travava o linear,
+e mesmo assim bateu no mesmo teto. Conclusão: o gargalo do
+misto é o dado, não o modelo. O script foi verificado antes por
+smoke test na CPU (64 exemplos, 1 época — treino, avaliação e
+salvamento rodaram; os F1 do smoke não valem como métrica, só
+provam que o código funciona). Duas incompatibilidades do
+transformers 5.x foram corrigidas no caminho: `warmup_ratio`
+não existe mais (só `warmup_steps`, calculado como 10% dos
+passos totais) e o collator padrão quebra com textos de
+comprimentos diferentes (`DataCollatorWithPadding`). O notebook
+pinou `transformers==5.23.0`, a versão testada. Os pesos do
+modelo treinado estão na saída da sessão do Kaggle
+(`./bertimbau-v1`) — ainda não foram subidos para o Hub.
 
 ## Reproduzir
 
