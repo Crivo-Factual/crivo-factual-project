@@ -34,6 +34,12 @@ def main():
         "--no-evidence", action="store_true",
         help="desliga a busca primária ao vivo (#47); só banco de fatos",
     )
+    parser.add_argument(
+        "--ml-model", default=None, metavar="PATH",
+        help="modelo de ML (model.joblib) p/ suspeita de triagem; "
+             "o score vai p/ o resultado e p/ a auditoria, nunca p/ o "
+             "veredito. Sem ele, sem score.",
+    )
     args = parser.parse_args()
     client = None
     if args.llm:
@@ -46,13 +52,24 @@ def main():
                 print(f"LLM ativo via cofre: {client.model} (Groq free tier)")
             except ValueError as exc:
                 print(f"LLM indisponível ({exc}); seguindo só com regras.")
+    ml_model = None
+    if args.ml_model:
+        try:
+            from crivo.ml.classifier import load_model
+            ml_model = load_model(args.ml_model)
+            print(f"ML ativo: {args.ml_model} "
+                  "(suspeita de triagem, nunca veredito)")
+        except ImportError as exc:
+            print(f"ML indisponível ({exc}); seguindo sem score.")
+        except (OSError, ValueError) as exc:
+            print(f"ML indisponível ({exc}); seguindo sem score.")
     conn = store.init_db(config.DB_PATH, config.SCHEMA_PATH)
     queue_mod.init_queue(conn)
     while True:
         print(f"--- vereditos {datetime.now(timezone.utc).isoformat()} ---")
         results = verdict_pipeline.process_queue(
             conn, limit=args.limit, llm_client=client, site_dir=config.SITE_DIR,
-            evidence_enabled=not args.no_evidence,
+            evidence_enabled=not args.no_evidence, ml_model=ml_model,
         )
         labels = Counter(r["verdict"][0] for r in results if "verdict" in r)
         print(f"processados: {len(results)} | vereditos: {dict(labels)}")
@@ -60,7 +77,10 @@ def main():
             if "verdict" in r:
                 label, index, rule = r["verdict"]
                 detail = f" ({index:.0f}%, {rule})" if index is not None else f" ({rule})"
-                print(f"  q{r['item_id']}: {label}{detail}"
+                suspicion = r.get("suspicion")
+                sus_txt = (f" [suspeita {suspicion:.2f}]"
+                           if suspicion is not None else "")
+                print(f"  q{r['item_id']}: {label}{detail}{sus_txt}"
                       + ("" if r["published"] else " [sem página]"))
             else:
                 print(f"  q{r['item_id']}: ERRO {r.get('error')}")
