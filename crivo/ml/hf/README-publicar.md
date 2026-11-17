@@ -71,7 +71,20 @@ Free alternatives for the demo:
   repository was made public to unblock the deploy.** Live demo:
   https://crivo-factual-demo.streamlit.app/ (verified HTTP 200).
   The public tree was scanned before publishing: no secrets
-  (only `.env.example`). Do NOT use the Marketplace listing
+  (only `.env.example`).
+
+  **BERTimbau via Inference API (17/11/2026):** the demo's
+  default model is now BERTimbau served by the Hugging Face
+  Inference API (no torch in the app). It needs an `HF_TOKEN`
+  in the app's Secrets: Streamlit dashboard → the app →
+  Settings → Secrets, add `HF_TOKEN = "hf_..."`. The token must
+  have the "Make calls to Inference Providers" permission
+  (Hugging Face → Settings → Access Tokens); the token saved
+  in the vault on 17/11 answered 401 on the inference endpoint
+  even after the permission was updated — verify it is the
+  same token and the permission is on, or create a new token
+  with that permission. Without a working token the demo falls
+  back to the unified model and says so on screen. Do NOT use the Marketplace listing
   "Deploy to Streamlit": it is not the official integration and
   its sample workflow runs a third-party repository's code.
   BERTimbau is intentionally not loaded in the demo: the free
