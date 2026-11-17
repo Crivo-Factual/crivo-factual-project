@@ -57,8 +57,17 @@ Free alternatives for the demo:
   `main` (after the PR is merged), main file path
   `crivo/ml/hf/streamlit_app.py`. The repository is private
   under the `Crivo-Factual` organization, so Streamlit needs
-  access to it: install the Streamlit GitHub App on the
-  organization (Settings → GitHub Apps) or deploy from a fork.
+  organization access granted — NOT a GitHub App install and
+  NO workflow YAML: on the GitHub authorization prompt, click
+  **Grant** next to `Crivo-Factual` under "Organization access"
+  before "Authorize streamlit". If GitHub is already connected,
+  grant it afterwards at GitHub → Settings → Applications →
+  Authorized OAuth Apps → Streamlit → Organization access →
+  Grant (Crivo-Factual). Until that grant, the deploy form says
+  "This repository does not exist" — the repo exists, Streamlit
+  just cannot see it yet. Do NOT use the Marketplace listing
+  "Deploy to Streamlit": it is not the official integration and
+  its sample workflow runs a third-party repository's code.
   BERTimbau is intentionally not loaded in the demo: the free
   tier gives the app 1 GB of RAM, and torch + a 440 MB BERT
   model does not fit in it.
