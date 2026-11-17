@@ -38,12 +38,18 @@ joblib. `model_v1.joblib`, `model_v2.joblib` e
 
 ## Resultados medidos
 
-| Métrica | v1 (artigos, n=1440) | v2 (misto, n=7319) | v2 nos artigos da v1 | unificado (artigos) | unificado (misto) |
-|---|---|---|---|---|---|
-| Acurácia | 0,9708 | 0,8086 | 0,8854 | 0,9646 | 0,8386 |
-| F1-macro | 0,9708 | 0,7676 | 0,8841 | 0,9646 | 0,7924 |
-| ROC-AUC | 0,9960 | 0,8575 | 0,9888 | — | — |
-| Brier | 0,0418 | 0,1444 | 0,0926 | — | — |
+| Métrica | v1 (artigos, n=1440) | v2 (misto, n=7319) | v2 nos artigos da v1 | unificado (artigos) | unificado (misto) | BERTimbau (artigos) | BERTimbau (misto) |
+|---|---|---|---|---|---|---|---|
+| Acurácia | 0,9708 | 0,8086 | 0,8854 | 0,9646 | 0,8386 | 0,9868 | 0,8507 |
+| F1-macro | 0,9708 | 0,7676 | 0,8841 | 0,9646 | 0,7924 | 0,9868 | 0,8184 |
+| ROC-AUC | 0,9960 | 0,8575 | 0,9888 | — | — | — | — |
+| Brier | 0,0418 | 0,1444 | 0,0926 | — | — | — | — |
+
+Treino real do BERTimbau em 17/11/2026, GPU T4 do Kaggle
+(o Colab gratuito estava sem GPU disponível). Mesmos splits
+(seed 42) e mesmos testes dos lineares — os números são
+comparáveis. Os pesos do modelo treinado estão na saída da
+sessão do Kaggle (`./bertimbau-v1`), ainda não subidos aqui.
 
 A comparação v2 × v1 nos artigos é limpa: os 1.440 itens do
 teste da v1 foram excluídos do treino da v2 por fingerprint.
@@ -77,11 +83,11 @@ def suspicion(text):
 - **A v2 não substitui a v1.** Em artigos completos a v1 continua
   melhor (F1 0,9708 contra 0,8841). A v2 vale pela amplitude
   (tweets, WhatsApp, COVID) e pelo texto curto.
-- **O unificado é o melhor modelo único, mas não bate 0,95 no
-  misto.** Artigos 0,9646 (meta batida), misto 0,7924. O teto
-  medido do linear no misto é 0,8183 — mesmo sem as duas piores
-  fontes. O salto para 0,95 no misto precisa de um transformer
-  (BERTimbau) — ver `crivo/ml/README.md`.
+- **O BERTimbau é o melhor modelo nos dois testes, mas o misto
+  continua abaixo de 0,95.** Artigos F1 0,9868 (meta batida),
+  misto F1 0,8184. O misto ficou exatamente no teto medido do
+  linear sem as piores fontes (0,8183), no conjunto completo —
+  o gargalo é o dado, não o modelo. Ver `crivo/ml/README.md`.
 - **Falso positivo por fonte (v2).** O score depende da fonte:
   5% em notícias políticas, 9% em artigos do Fake.Br, 22% em
   WhatsApp, 36% em COVID, 53% em tweets do MuMiN, 58% nas
