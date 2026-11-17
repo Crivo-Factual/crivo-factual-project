@@ -535,6 +535,27 @@ loading torch in the app: it answered 401 with the current
 token (probably missing the inference permission) — not
 verified working.
 
+**Current-politics test set (17/11/2026).** Built to answer
+that failure honestly: 20 items (10 true / 10 false, Nov 2026
+Brazilian politics — 5 real g1 articles + 5 short true
+headlines; 7 short + 3 long false claims as circulated,
+debunked by Lupa / Aos Fatos / Secom / MDS;
+`crivo/ml/data/current_politics_test.json`,
+`scripts/eval_current_politics.py`, test only). Results:
+accuracy 0.85 for v2, unified, BERTimbau and the router (v1:
+0.75); articles 1.00 for every model (n=8); short claims 0.75
+(n=12), with false-positive rates on true items of v1 0.50,
+v2/unified 0.20, BERTimbau 0.30, and false recall 1.00 (v1,
+BERTimbau) / 0.90 (v2, unified). Two corrections to the
+earlier reading: (1) real full-length current articles score
+fine on v1 (0.01–0.11) — the EC 141 text that scored 0.95 is
+511 chars of dense hand-written claims, not a real article;
+(2) BERTimbau fixes the article case but NOT the short regime
+— short true claims fail on every model, including BERTimbau
+(0.99 on the EC 141 one-liner). The demo now defaults to
+BERTimbau via the Inference API with fallback to the unified
+model, and warns on every short text.
+
 **Two bugs found and fixed in this round:**
 (1) `train_unified.py` called `save_model(pipe, caminho)` —
 the signature is `save_model(pipe, metrics, out_dir)`, and the
