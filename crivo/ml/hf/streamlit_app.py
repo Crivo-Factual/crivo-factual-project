@@ -30,7 +30,7 @@ import time
 
 import joblib
 import streamlit as st
-from huggingface_hub import InferenceClient, hf_hub_download
+from huggingface_hub import hf_hub_download
 
 HF_MODEL_REPO = "brenindexdev/crivo-factual-fakebr"
 
@@ -60,30 +60,72 @@ def load(name):
     return joblib.load(path)
 
 
+class _InferenceApiError(Exception):
+    """An Inference API failure, carrying the HTTP status so the
+    on-screen fallback note can say what actually went wrong."""
+
+    def __init__(self, status, detail):
+        super().__init__(f"HTTP {status}: {detail}" if status else detail)
+        self.status = status
+        self.detail = detail
+
+
 def _bertimbau_score(text, token):
-    """P(fake) from the Inference API. Raises on any failure;
-    the caller decides the fallback. Retries once while the
-    model is loading on the server (503)."""
-    client = InferenceClient(model=HF_MODEL_REPO, token=token, timeout=120)
-    last_error = None
+    """P(fake) from the Inference API via a plain HTTPS POST.
+    (InferenceClient swallows the real error as a bare
+    StopIteration, so the app calls the router directly and
+    keeps the HTTP status.) Raises _InferenceApiError on any
+    failure; retries twice while the model is loading (503)."""
+    import json
+    import urllib.error
+    import urllib.request
+
+    body = json.dumps({"inputs": text}).encode()
+    url = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL_REPO}"
     for attempt in range(3):
+        req = urllib.request.Request(url, data=body, method="POST")
+        req.add_header("Authorization", f"Bearer {token}")
+        req.add_header("Content-Type", "application/json")
         try:
-            out = client.text_classification(text)
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                out = json.loads(resp.read().decode())
             break
-        except Exception as exc:  # noqa: BLE001 - surfaced as fallback
-            last_error = exc
-            if "loading" in str(exc).lower() and attempt < 2:
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode()[:200]
+            if exc.code == 503 and "loading" in detail.lower() and attempt < 2:
                 time.sleep(15)
                 continue
-            raise
-    else:
-        raise last_error
+            raise _InferenceApiError(exc.code, detail)
+        except Exception as exc:  # noqa: BLE001 - wrapped below
+            raise _InferenceApiError(None, str(exc)[:200])
     for entry in out:
         if entry["label"] in ("LABEL_1", "fake", "FAKE"):
             return float(entry["score"])
     # Single-label response: the top label is the answer.
     top = max(out, key=lambda e: e["score"])
     return float(top["score"]) if top["label"] in ("LABEL_1", "fake", "FAKE") else 1.0 - float(top["score"])
+
+
+def _api_failure_reason(exc):
+    """Short, safe description of an Inference API failure for the
+    on-screen fallback note. Never includes the token."""
+    status = getattr(exc, "status", None)
+    msg = str(exc)
+    if status == 401 or "401" in msg or "Invalid username" in msg:
+        return (
+            "HTTP 401 — the token was rejected; check that "
+            "HF_TOKEN has the 'Make calls to Inference Providers' "
+            "permission"
+        )
+    if status == 404 or "404" in msg:
+        return "HTTP 404 — the model was not found on the Inference API"
+    if status == 429 or "429" in msg:
+        return "HTTP 429 — rate limit, try again in a minute"
+    if status == 503 or "loading" in msg.lower():
+        return "the model is still loading on the server"
+    if "timed out" in msg.lower() or "Timeout" in msg:
+        return "the request timed out"
+    return "no answer from the Inference API"
 
 
 def reading(proba):
@@ -109,12 +151,11 @@ def classify(text, mode):
             try:
                 proba = _bertimbau_score(text, token)
                 return proba, "BERTimbau (via Inference API)", ""
-            except Exception:  # noqa: BLE001 - fallback is the point
-                pass
+            except Exception as exc:  # noqa: BLE001 - fallback is the point
+                reason = _api_failure_reason(exc)
             fallback_note = (
-                "BERTimbau API unavailable (no answer from the "
-                "Inference API), scored with the unified model "
-                "instead."
+                f"BERTimbau API unavailable ({reason}), scored "
+                "with the unified model instead."
             )
         else:
             fallback_note = (
