@@ -40,16 +40,18 @@ with joblib. `model_v1.joblib`, `model_v2.joblib` and
 
 | Metric | v1 (articles, n=1440) | v2 (mixed, n=7319) | v2 on the v1 articles | unified (articles) | unified (mixed) | BERTimbau (articles) | BERTimbau (mixed) |
 |---|---|---|---|---|---|---|---|
-| Accuracy | 0.9708 | 0.8086 | 0.8854 | 0.9646 | 0.8386 | 0.9868 | 0.8507 |
-| F1-macro | 0.9708 | 0.7676 | 0.8841 | 0.9646 | 0.7924 | 0.9868 | 0.8184 |
+| Accuracy | 0.9708 | 0.8086 | 0.8854 | 0.9646 | 0.8386 | 0.9854 | 0.8561 |
+| F1-macro | 0.9708 | 0.7676 | 0.8841 | 0.9646 | 0.7924 | 0.9854 | 0.8243 |
 | ROC-AUC | 0.9960 | 0.8575 | 0.9888 | — | — | — | — |
 | Brier | 0.0418 | 0.1444 | 0.0926 | — | — | — | — |
 
 Real BERTimbau training on 17/11/2026, Kaggle T4 GPU (free
 Colab had no GPU available). Same splits (seed 42) and same
 tests as the linear models — the numbers are comparable. The
-trained model weights are in the Kaggle session output
-(`./bertimbau-v1`), not yet uploaded here.
+trained model weights are published in this repository, under
+`bertimbau/` (configuration, weights, tokenizer and metrics),
+uploaded from the Kaggle session on 17/11/2026 (re-run of the
+training; first run: articles 0.9868 / mixed 0.8184).
 
 The v2 vs v1 comparison on articles is clean: the 1,440 items
 of the v1 test set were excluded from v2 training by
@@ -85,10 +87,10 @@ def suspicion(text):
   better (F1 0.9708 against 0.8841). v2 is worth it for breadth
   (tweets, WhatsApp, COVID) and short text.
 - **BERTimbau is the best model on both tests, but mixed
-  stays below 0.95.** Articles F1 0.9868 (goal beaten),
-  mixed F1 0.8184. Mixed landed exactly on the measured linear
-  ceiling without the worst sources (0.8183), on the full set —
-  the bottleneck is the data, not the model. See
+  stays below 0.95.** Articles F1 0.9854 (goal beaten),
+  mixed F1 0.8243. Mixed clears the measured linear ceiling
+  without the worst sources (0.8183) by 0.6 points, on the full
+  set — the bottleneck is the data, not the model. See
   `crivo/ml/README.md`.
 - **False positives by source (v2).** The score depends on the
   source: 5% on political news, 9% on Fake.Br articles, 22% on
