@@ -1,9 +1,10 @@
-# Publicar o modelo e a demo no Hugging Face
+# Publicar os modelos e a demo no Hugging Face
 
-O modelo treinado (`crivo/ml/models/model.joblib`, 2,7 MB) e as
-métricas (`metrics.json`) estão no seu ambiente local — o repo
-não versiona artefatos gerados. A publicação precisa da conta do
-idealizador no Hugging Face (o token nunca vai para o chat nem
+Os modelos treinados (`crivo/ml/models/model.joblib` v1, 2,7 MB, e
+`crivo/ml/models/v2/model.joblib` v2, 2,8 MB) e as métricas
+(`metrics.json` em cada pasta) estão no seu ambiente local — o
+repo não versiona artefatos gerados. A publicação precisa da conta
+do idealizador no Hugging Face (o token nunca vai para o chat nem
 para o repo).
 
 ## 1. Conta e token
@@ -17,8 +18,9 @@ para o repo).
 ## 2. Repositório do modelo
 
 1. Crie o repositório `crivo-factual-fakebr` no Hub (tipo Model).
-2. Suba estes dois arquivos:
-   - `crivo/ml/models/model.joblib` → `model.joblib`
+2. Suba estes arquivos:
+   - `crivo/ml/models/model.joblib` → `model_v1.joblib`
+   - `crivo/ml/models/v2/model.joblib` → `model_v2.joblib`
    - `crivo/ml/hf/README.md` → `README.md` (o model card)
 3. Confira a página do modelo: o card mostra métricas, uso e
    limites.
@@ -29,9 +31,10 @@ para o repo).
 2. Edite `crivo/ml/hf/app.py`: troque `SEU_USUARIO` em
    `HF_MODEL_REPO` pelo seu nome de usuário do Hub.
 3. Suba `app.py` + `requirements.txt` para o Space.
-4. O Space baixa o modelo do repositório do passo 2 na primeira
-   execução. Teste com um artigo completo — manchete sozinha
-   devolve o aviso de texto curto, que é o comportamento certo.
+4. O Space baixa os dois modelos do repositório do passo 2 na
+   primeira execução e usa o roteador (texto com 500+ caracteres
+   → v1; texto curto → v2). Teste com um artigo completo e com
+   uma mensagem curta.
 
 ## 4. Depois de publicar
 
