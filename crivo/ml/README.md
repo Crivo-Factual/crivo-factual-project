@@ -1,9 +1,21 @@
 # Classificador de veracidade (ML)
 
-Um classificador que estima a probabilidade de uma notícia em
-português ser falsa, treinado no **Fake.Br Corpus** (Monteiro et
-al., 2018, PROPOR 2018) — 7.200 notícias, 3.600 falsas + 3.600
-verdadeiras, em pares alinhados sobre o mesmo fato.
+Dois modelos, um roteador por tamanho do texto:
+
+- **v1 — especialista em artigos** (Fake.Br Corpus, 7.200 notícias
+  em pares alinhados). Só opina a partir de 500 caracteres.
+- **v2 — generalista** (FakenewsBR, 36.594 itens: notícias, tweets,
+  WhatsApp, COVID). Opina sobre texto curto, mas com viés de
+  falso positivo — é sinal fraco, nunca veredito.
+
+O desenho continua o mesmo: o ML é **sinal de triagem, nunca
+veredito** (ver a seção abaixo).
+
+## v1 — Fake.Br Corpus (16/11/2026)
+
+Treinado no **Fake.Br Corpus** (Monteiro et al., 2018, PROPOR
+2018) — 7.200 notícias, 3.600 falsas + 3.600 verdadeiras, em
+pares alinhados sobre o mesmo fato.
 
 ## O que ele é — e o que ele não é
 
@@ -66,6 +78,73 @@ Dos 42 erros do teste, o tamanho médio é 2.337 chars (média do
 teste: 3.951) — o modelo erra mais em textos médios, não só nos
 curtos (só 4 dos 42 têm menos de 1.000 chars).
 
+## v2 — FakenewsBR + calibração (17/11/2026)
+
+Treino no corpus unificado **FakenewsBR** (Silva et al., 2026,
+DSW) — 51.205 linhas no arquivo, **36.594 canônicas usadas**
+(26.534 falsas / 10.060 verdadeiras). Fora: as variantes `*_raw`
+(as mesmas instâncias antes da limpeza) e textos com menos de 50
+chars. O corpus é majoritariamente texto curto (mediana 156
+chars): notícias do Kaggle, tweets, WhatsApp, COVID-19, MuMiN-PT,
+LLM4BR_300. O treino é `scripts/train_classifier_v2.py`.
+
+**Comparação limpa:** os 1.440 itens do teste da v1 foram
+excluídos do treino da v2 por fingerprint (1.416 casaram, todos
+de `Fake.br`; os outros 24 não existem no arquivo). A v2 nunca
+viu esses textos — a comparação abaixo é honesta.
+
+| Métrica | v1 (artigos) | v2 (misto) | v2 no teste da v1 |
+|---|---|---|---|
+| Acurácia | 0,9708 | 0,8086 | 0,9313 (calibrada) / 0,8854 |
+| F1-macro | 0,9708 | 0,7676 | 0,9311 (calibrada) / 0,8841 |
+| ROC-AUC | 0,9960 | 0,8575 | 0,9890 |
+| Brier | 0,0418 | 0,1444 | 0,0561 (calibrada) / 0,0926 |
+| n (teste) | 1.440 | 7.319 | 1.440 |
+
+**Veredito: a v2 NÃO substitui a v1.** Em artigos completos a v1
+continua melhor (0,9708 contra 0,9311 calibrada). O valor da v2
+é a amplitude: ela cobre tweets, WhatsApp e COVID, domínios que
+a v1 nunca viu — e é o único modelo que opina sobre texto curto.
+
+**Calibração — resultado misto, não enviada.** A isotônica
+melhora o Brier (0,1444 → 0,1256 no teste misto; 0,0926 →
+0,0561 nos artigos) e melhora o F1 nos artigos (0,8841 →
+0,9311), mas desloca o ponto de operação para "falso": no teste
+misto, os falsos positivos em verdadeiras saltam de 590 para
+1.011 e o F1-macro cai (0,7676 → 0,7444). O artefato enviado é
+o modelo **sem calibração**; a calibração fica registrada como
+experimento em `metrics.json`.
+
+**Falso positivo por fonte (v2 sem calibração, teste misto) — o
+score depende da fonte, não é uniforme:**
+
+| Fonte | Verdadeiras chamadas falsas |
+|---|---|
+| LLM4BR_300 (notícias políticas) | 5% (1/20) |
+| Fake.br (artigos) | 9% (52/555) |
+| FakeWhatsApp.BR_2018 | 22% (157/698) |
+| COVID19.BR | 36% (81/226) |
+| MuMiN-PT (tweets) | 53% (8/15) |
+| true (Kaggle, só verdadeiras) | 58% (291/498) |
+
+**Texto curto melhorou, mas não resolveu.** A v2 sem calibração
+pontua verdadeiro curto em 0,456 e falso curto em 0,722 em
+média (a v1 pontuava 0,91–0,98 em verdadeiro curto). Separa,
+mas o guarda de 500 caracteres continua valendo — uma frase
+comum e verdadeira ("O governo anunciou hoje a nova regra para
+o saque do FGTS...") ainda pontua 0,80 na v2.
+
+**Limiares da v2 (teste misto, sem calibração):** 0,6 → precisão
+0,913, recall 0,716; 0,8 → precisão 0,964, recall 0,313. Os
+limiares do bônus de triagem (+5/+10) foram medidos para a v1
+e **não valem para a v2** — a v2 não herda os bônus.
+
+**Roteador (desenho):** texto com 500+ caracteres → v1; texto
+curto → v2 (sinal fraco). O script de teste local
+(`crivo/ml/hf/infer.py`) já implementa o roteador. A integração
+no pipeline (`run_verdicts.py`) continua usando só a v1 por
+enquanto — o pipeline só pontua artigos completos.
+
 ## Reproduzir
 
 ```bash
@@ -77,8 +156,16 @@ git clone --depth 1 https://github.com/roneysco/Fake.br-Corpus.git \
 python3 -m venv .venv-ml
 .venv-ml/bin/pip install scikit-learn pandas
 
-# 3. Treine (gera crivo/ml/models/model.joblib + metrics.json)
+# 3. Treine a v1 (gera crivo/ml/models/model.joblib + metrics.json)
 .venv-ml/bin/python scripts/train_classifier.py
+
+# 3b. Treine a v2 (precisa do CSV do FakenewsBR — ver
+# crivo/ml/fakenewsbr.py para o download; gera
+# crivo/ml/models/v2/model.joblib + metrics.json)
+.venv-ml/bin/python scripts/train_classifier_v2.py \
+  --fakenewsbr ~/workspace/crivo/fakenewsbr/FakenewsBR_factchecked.csv \
+  --fakebr ~/workspace/crivo/fakebr-corpus \
+  --out crivo/ml/models/v2
 
 # 4. Use no pipeline (score registrado, veredito inalterado)
 python3 scripts/run_verdicts.py --limit 10 \
@@ -92,16 +179,22 @@ sem mudar o veredito) usam um modelo falso e rodam sempre.
 
 ## Publicação no Hugging Face
 
-O artefato é o pipeline inteiro (vetorizador + modelo) em
-`crivo/ml/models/model.joblib`, com as métricas em
-`crivo/ml/models/metrics.json`. Os arquivos de publicação
-(model card + demo Gradio) estão em `crivo/ml/hf/` — o modelo
-sobe para o Hub com a conta do idealizador; ver
-`crivo/ml/hf/README.md`.
+Os artefatos são os pipelines inteiros (vetorizador + modelo),
+salvos com joblib: `crivo/ml/models/model.joblib` (v1) e
+`crivo/ml/models/v2/model.joblib` (v2, sem calibração), cada um
+com seu `metrics.json`. Os arquivos de publicação (model card +
+demo Gradio com o roteador v1/v2) estão em `crivo/ml/hf/` — os
+modelos sobem para o Hub com a conta do idealizador; ver
+`crivo/ml/hf/README.md` e `crivo/ml/hf/README-publicar.md`.
 
-## Citação do corpus
+## Citação dos corpora
 
 Monteiro R.A., Santos R.L.S., Pardo T.A.S., de Almeida T.A.,
 Ruiz E.E.S., Vale O.A. (2018). *Contributions to the Study of
 Fake News in Portuguese: New Corpus and Automatic Detection
 Results.* PROPOR 2018, LNCS vol. 11122. Springer.
+
+Silva et al. (2026). *FakenewsBR: A Unified Corpus for Fake News
+Detection in Portuguese.* DSW 2026. Corpus unificado em
+https://github.com/AKCIT-FN/fakenews-data (espelho do CSV no
+Hugging Face Hub: `kauandivino/FakenewsBR`).
