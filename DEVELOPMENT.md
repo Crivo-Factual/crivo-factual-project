@@ -516,3 +516,22 @@ CV that would not finish on this VM — replaced by direct
 evaluation of C on the tests, with incremental saving of
 results (a restart does not erase what was already measured;
 the 00:22 restart interrupted the first chain midway).
+
+## Branching (GitLab Flow) — from 17/11/2026
+
+The history on `main` is kept as it happened (see `CHANGELOG.md`
+for the English map). From now on, work follows GitLab Flow:
+
+- `main` is the only long-lived branch: always green (CI passes),
+  every change arrives through a feature branch.
+- Feature branches: `feature/<topic>` — e.g.
+  `feature/demo-streamlit`, `feature/wave-2`, `feature/launch`.
+  One logical change per commit (no more one-commit-per-file),
+  commit messages in English, imperative mood.
+- Open workstreams already have their branches (created 17/11):
+  `feature/demo-streamlit` (issue #57), `feature/wave-2`
+  (issue #32), `feature/launch` (issue #43).
+- Merge to `main` only after CI passes; delete the feature branch
+  after merging. Never commit directly to `main` except for a
+  hotfix, and never rewrite published history (no force-push to
+  `main`).
