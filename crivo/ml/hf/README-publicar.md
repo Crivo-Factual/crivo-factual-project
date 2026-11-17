@@ -40,17 +40,28 @@ attempted via API and **rejected with 402 Payment Required**.
 Hub policy since August/2026: creating a Gradio or Docker Space
 that runs code requires a paid plan (PRO, US$ 9/month). A free
 account keeps up to 2 Gradio Spaces on ZeroGPU hardware, but
-only with an account older than 30 days and a verified email —
-the `brenindexdev` account was created on 17/11/2026, so it
-does not qualify yet. Static Spaces are still free, but they do
-not run server code — they do not work for the live demo.
+only accounts in good standing — the `brenindexdev` account
+(created 2025-06-09) got "Your account is not eligible to host
+ZeroGPU Spaces for free" on the second attempt. Static Spaces
+are still free, but they do not run server code — they do not
+work for the live demo.
 
 Free alternatives for the demo:
-- **Streamlit Community Cloud (free):** rewrite the demo in
-  Streamlit (`app.py` becomes `streamlit_app.py`, same
-  classification logic, models downloaded from the repository
-  in step 2) and publish it from GitHub. This is the recommended
-  path.
+- **Streamlit Community Cloud (free) — DONE 17/11/2026:**
+  the demo was rewritten in Streamlit
+  (`crivo/ml/hf/streamlit_app.py`, same classification logic,
+  models downloaded from the repository in step 2) on the
+  `feature/demo-streamlit` branch. To deploy: open
+  share.streamlit.io, sign in with GitHub, "Create app",
+  repository `Crivo-Factual/crivo-factual-project`, branch
+  `main` (after the PR is merged), main file path
+  `crivo/ml/hf/streamlit_app.py`. The repository is private
+  under the `Crivo-Factual` organization, so Streamlit needs
+  access to it: install the Streamlit GitHub App on the
+  organization (Settings → GitHub Apps) or deploy from a fork.
+  BERTimbau is intentionally not loaded in the demo: the free
+  tier gives the app 1 GB of RAM, and torch + a 440 MB BERT
+  model does not fit in it.
 - **Wait 30 days** and try the ZeroGPU Space again once the
   account qualifies (does not fit the GenAI deadline).
 - **PRO (US$ 9/month):** only if he wants to pay — not the case.
