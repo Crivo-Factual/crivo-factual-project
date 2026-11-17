@@ -1,333 +1,338 @@
-# Classificador de veracidade (ML)
+# Veracity classifier (ML)
 
-Três modelos, um roteador por tamanho do texto — e um modelo
-único:
+Three models, one router by text length — and a single model:
 
-- **v1 — especialista em artigos** (Fake.Br Corpus, 7.200 notícias
-  em pares alinhados). Só opina a partir de 500 caracteres.
-- **v2 — generalista** (FakenewsBR, 36.594 itens: notícias, tweets,
-  WhatsApp, COVID). Opina sobre texto curto, mas com viés de
-  falso positivo — é sinal fraco, nunca veredito.
-- **unificado — um só modelo para qualquer tamanho** (Fake.Br +
-  FakenewsBR, 35.035 itens). Artigos F1 0,9646, misto F1 0,7924 —
-  o melhor modelo único; só perde da v1 nos artigos (0,9736) e
-  bate a v2 no misto (0,7754).
+- **v1 — article specialist** (Fake.Br Corpus, 7,200 news items
+  in aligned pairs). Only scores texts of 500 characters or more.
+- **v2 — generalist** (FakenewsBR, 36,594 items: news, tweets,
+  WhatsApp, COVID). Scores short text, but with a false-positive
+  bias — it is a weak signal, never a verdict.
+- **unified — one model for any length** (Fake.Br +
+  FakenewsBR, 35,035 items). Articles F1 0.9646, mixed F1 0.7924 —
+  the best single model; it only loses to v1 on articles (0.9736)
+  and beats v2 on mixed (0.7754).
 
-O desenho continua o mesmo: o ML é **sinal de triagem, nunca
-veredito** (ver a seção abaixo).
+The design stays the same: ML is a **triage signal, never a
+verdict** (see the section below).
 
 ## v1 — Fake.Br Corpus (16/11/2026)
 
-Treinado no **Fake.Br Corpus** (Monteiro et al., 2018, PROPOR
-2018) — 7.200 notícias, 3.600 falsas + 3.600 verdadeiras, em
-pares alinhados sobre o mesmo fato.
+Trained on the **Fake.Br Corpus** (Monteiro et al., 2018, PROPOR
+2018) — 7,200 news items, 3,600 fake + 3,600 true, in aligned
+pairs about the same fact.
 
-## O que ele é — e o que ele não é
+## What it is — and what it is not
 
-**É um sinal de triagem.** A suspeita (0–1) prioriza a fila: o que
-parece mais falso é verificado primeiro, e o score fica registrado
-no veredito e na auditoria (`run_verdicts.py --ml-model`).
+**It is a triage signal.** The suspicion score (0–1) prioritizes
+the queue: what looks most fake is checked first, and the score
+is recorded in the verdict and in the audit log
+(`run_verdicts.py --ml-model`).
 
-**Não é um juiz.** Ele NUNCA decide um veredito. O veredito do
-Crivo continua sendo decidido por regras determinísticas sobre
-fontes primárias (Câmara, Senado, DOU). Um texto com suspeita 0,99
-e outro com 0,01 passam pelo mesmo crivo: sem fonte primária, os
-dois saem Inconclusivo. Essa separação é o ponto central do
-desenho — e é o que torna o modelo publicável sem comprometer a
-metodologia do portal.
+**It is not a judge.** It NEVER decides a verdict. The Crivo
+verdict is still decided by deterministic rules over primary
+sources (Câmara, Senado, DOU). A text with suspicion 0.99 and
+another with 0.01 go through the same screening: without a
+primary source, both come out Inconclusivo. This separation is
+the central point of the design — and it is what makes the model
+publishable without compromising the portal's methodology.
 
-## Resultados medidos (16/11/2026)
+## Measured results (16/11/2026)
 
-Treino: TF-IDF (unigramas + bigramas, sublinear, 50k features,
-stopwords em português) + regressão logística, contra um baseline
-de Naive Bayes. Split **por par** (a falsa e a verdadeira do mesmo
-fato nunca caem em lados diferentes — sem isso o modelo decoraria
-o evento).
+Training: TF-IDF (unigrams + bigrams, sublinear, 50k features,
+Portuguese stopwords) + logistic regression, against a Naive
+Bayes baseline. **Pair-wise split** (the fake and the true item
+about the same fact never land on different sides — without this
+the model would memorize the event).
 
-| Métrica | Valor |
+| Metric | Value |
 |---|---|
-| Modelo escolhido | Regressão logística |
-| Acurácia (teste, n=1440) | 0,9708 |
-| F1-macro (teste) | 0,9708 |
-| F1 classe falsa | 0,9710 (precisão 0,9669, recall 0,9750) |
-| ROC-AUC | 0,9960 |
-| CV 5-fold F1-macro | 0,9663 ± 0,0064 |
-| Matriz de confusão | [[696, 24], [18, 702]] |
+| Chosen model | Logistic regression |
+| Accuracy (test, n=1440) | 0.9708 |
+| F1-macro (test) | 0.9708 |
+| Fake-class F1 | 0.9710 (precision 0.9669, recall 0.9750) |
+| ROC-AUC | 0.9960 |
+| CV 5-fold F1-macro | 0.9663 ± 0.0064 |
+| Confusion matrix | [[696, 24], [18, 702]] |
 
-## Limite medido: texto curto não serve
+## Measured limit: short text does not work
 
-O modelo só viu artigos completos no treino. Em manchetes e
-resumos (~200 chars) ele pontua 0,91–0,98 **mesmo quando a notícia
-é verdadeira** — não sabe o que fazer com texto curto. Por isso
-`suspicion_score` devolve **None abaixo de 500 caracteres** em vez
-de um número enganoso, e a integração só calcula a suspeita sobre
-o **texto completo do artigo** (`get_item_text`), nunca sobre o
-título. Em artigos completos o comportamento é o esperado:
-verdadeiros do corpus pontuam 0,04–0,18; falsos, 0,69–0,93.
+The model only saw full articles in training. On headlines and
+summaries (~200 chars) it scores 0.91–0.98 **even when the news
+is true** — it does not know what to do with short text. That is
+why `suspicion_score` returns **None below 500 characters**
+instead of a misleading number, and the integration only
+computes suspicion over the **full article text**
+(`get_item_text`), never over the title. On full articles the
+behavior is as expected: true items from the corpus score
+0.04–0.18; fake ones, 0.69–0.93.
 
-## Calibração e limiares medidos (17/11/2026)
+## Calibration and measured thresholds (17/11/2026)
 
-As probabilidades **não são chances calibradas** — são scores de
-ranking. Brier 0,0418 (bom no geral), mas as faixas do meio
-desviam: na faixa 0,1–0,3, 0% são falsas (o modelo diz 17%); na
-0,3–0,5, 21% são falsas (diz 39%); na 0,7–0,9, 99% são falsas
-(diz 83%). Nos extremos ele acerta: 0,0–0,1 tem 0% de falsas e
-0,9–1,0 tem 100%. Leia o score como "mais suspeito / menos
-suspeito", não como "x% de chance de ser falso".
+The probabilities **are not calibrated chances** — they are
+ranking scores. Brier 0.0418 (good overall), but the middle
+bands deviate: in the 0.1–0.3 band, 0% are fake (the model says
+17%); in 0.3–0.5, 21% are fake (it says 39%); in 0.7–0.9, 99%
+are fake (it says 83%). At the extremes it is right: 0.0–0.1
+has 0% fakes and 0.9–1.0 has 100%. Read the score as "more
+suspicious / less suspicious", not as "x% chance of being fake".
 
-Os limiares do bônus de triagem foram medidos no teste (n=1440),
-não chutados: **0,6 → precisão 0,977, recall 0,950** (bônus +5) e
-**0,8 → precisão 0,998, recall 0,721** (bônus +10). Ou seja: acima
-de 0,8 quase nunca é falso positivo, mas só pega 72% das falsas.
-Dos 42 erros do teste, o tamanho médio é 2.337 chars (média do
-teste: 3.951) — o modelo erra mais em textos médios, não só nos
-curtos (só 4 dos 42 têm menos de 1.000 chars).
+The triage bonus thresholds were measured on the test set
+(n=1440), not guessed: **0.6 → precision 0.977, recall 0.950**
+(bonus +5) and **0.8 → precision 0.998, recall 0.721** (bonus
++10). In other words: above 0.8 it is almost never a false
+positive, but it only catches 72% of the fakes. Of the 42 test
+errors, the average size is 2,337 chars (test average: 3,951)
+— the model errs more on medium texts, not only on short ones
+(only 4 of the 42 are under 1,000 chars).
 
-## v2 — FakenewsBR + calibração (17/11/2026)
+## v2 — FakenewsBR + calibration (17/11/2026)
 
-Treino no corpus unificado **FakenewsBR** (Silva et al., 2026,
-DSW) — 51.205 linhas no arquivo, **36.594 canônicas usadas**
-(26.534 falsas / 10.060 verdadeiras). Fora: as variantes `*_raw`
-(as mesmas instâncias antes da limpeza) e textos com menos de 50
-chars. O corpus é majoritariamente texto curto (mediana 156
-chars): notícias do Kaggle, tweets, WhatsApp, COVID-19, MuMiN-PT,
-LLM4BR_300. O treino é `scripts/train_classifier_v2.py`.
+Training on the unified **FakenewsBR** corpus (Silva et al.,
+2026, DSW) — 51,205 lines in the file, **36,594 canonical items
+used** (26,534 fake / 10,060 true). Excluded: the `*_raw`
+variants (the same instances before cleaning) and texts under
+50 chars. The corpus is mostly short text (median 156 chars):
+Kaggle news, tweets, WhatsApp, COVID-19, MuMiN-PT, LLM4BR_300.
+Training runs in `scripts/train_classifier_v2.py`.
 
-**Comparação limpa:** os 1.440 itens do teste da v1 foram
-excluídos do treino da v2 por fingerprint (1.416 casaram, todos
-de `Fake.br`; os outros 24 não existem no arquivo). A v2 nunca
-viu esses textos — a comparação abaixo é honesta.
+**Clean comparison:** the 1,440 items of the v1 test set were
+excluded from v2 training by fingerprint (1,416 matched, all
+from `Fake.br`; the other 24 do not exist in the file). v2 never
+saw these texts — the comparison below is honest.
 
-| Métrica | v1 (artigos) | v2 (misto) | v2 no teste da v1 |
+| Metric | v1 (articles) | v2 (mixed) | v2 on the v1 test |
 |---|---|---|---|
-| Acurácia | 0,9708 | 0,8086 | 0,9313 (calibrada) / 0,8854 |
-| F1-macro | 0,9708 | 0,7676 | 0,9311 (calibrada) / 0,8841 |
-| ROC-AUC | 0,9960 | 0,8575 | 0,9890 |
-| Brier | 0,0418 | 0,1444 | 0,0561 (calibrada) / 0,0926 |
-| n (teste) | 1.440 | 7.319 | 1.440 |
+| Accuracy | 0.9708 | 0.8086 | 0.9313 (calibrated) / 0.8854 |
+| F1-macro | 0.9708 | 0.7676 | 0.9311 (calibrated) / 0.8841 |
+| ROC-AUC | 0.9960 | 0.8575 | 0.9890 |
+| Brier | 0.0418 | 0.1444 | 0.0561 (calibrated) / 0.0926 |
+| n (test) | 1,440 | 7,319 | 1,440 |
 
-**Veredito: a v2 NÃO substitui a v1.** Em artigos completos a v1
-continua melhor (0,9708 contra 0,9311 calibrada). O valor da v2
-é a amplitude: ela cobre tweets, WhatsApp e COVID, domínios que
-a v1 nunca viu — e é o único modelo que opina sobre texto curto.
+**Verdict: v2 does NOT replace v1.** On full articles v1 is
+still better (0.9708 against 0.9311 calibrated). The value of
+v2 is its breadth: it covers tweets, WhatsApp and COVID,
+domains v1 never saw — and it is the only model that scores
+short text.
 
-**Calibração — resultado misto, não enviada.** A isotônica
-melhora o Brier (0,1444 → 0,1256 no teste misto; 0,0926 →
-0,0561 nos artigos) e melhora o F1 nos artigos (0,8841 →
-0,9311), mas desloca o ponto de operação para "falso": no teste
-misto, os falsos positivos em verdadeiras saltam de 590 para
-1.011 e o F1-macro cai (0,7676 → 0,7444). O artefato enviado é
-o modelo **sem calibração**; a calibração fica registrada como
-experimento em `metrics.json`.
+**Calibration — mixed result, not shipped.** Isotonic
+calibration improves Brier (0.1444 → 0.1256 on the mixed test;
+0.0926 → 0.0561 on articles) and improves F1 on articles
+(0.8841 → 0.9311), but it shifts the operating point toward
+"fake": on the mixed test, false positives on true items jump
+from 590 to 1,011 and F1-macro drops (0.7676 → 0.7444). The
+shipped artifact is the model **without calibration**;
+calibration stays recorded as an experiment in `metrics.json`.
 
-**Falso positivo por fonte (v2 sem calibração, teste misto) — o
-score depende da fonte, não é uniforme:**
+**False positives by source (v2 without calibration, mixed
+test) — the score depends on the source, it is not uniform:**
 
-| Fonte | Verdadeiras chamadas falsas |
+| Source | True items called fake |
 |---|---|
-| LLM4BR_300 (notícias políticas) | 5% (1/20) |
-| Fake.br (artigos) | 9% (52/555) |
+| LLM4BR_300 (political news) | 5% (1/20) |
+| Fake.br (articles) | 9% (52/555) |
 | FakeWhatsApp.BR_2018 | 22% (157/698) |
 | COVID19.BR | 36% (81/226) |
 | MuMiN-PT (tweets) | 53% (8/15) |
-| true (Kaggle, só verdadeiras) | 58% (291/498) |
+| true (Kaggle, true items only) | 58% (291/498) |
 
-**Texto curto melhorou, mas não resolveu.** A v2 sem calibração
-pontua verdadeiro curto em 0,456 e falso curto em 0,722 em
-média (a v1 pontuava 0,91–0,98 em verdadeiro curto). Separa,
-mas o guarda de 500 caracteres continua valendo — uma frase
-comum e verdadeira ("O governo anunciou hoje a nova regra para
-o saque do FGTS...") ainda pontua 0,80 na v2.
+**Short text improved, but not solved.** v2 without calibration
+scores short true text at 0.456 and short fake at 0.722 on
+average (v1 scored 0.91–0.98 on short true text). It separates,
+but the 500-character guard still applies — an ordinary true
+sentence ("O governo anunciou hoje a nova regra para o saque do
+FGTS...") still scores 0.80 on v2.
 
-**Limiares da v2 (teste misto, sem calibração):** 0,6 → precisão
-0,913, recall 0,716; 0,8 → precisão 0,964, recall 0,313. Os
-limiares do bônus de triagem (+5/+10) foram medidos para a v1
-e **não valem para a v2** — a v2 não herda os bônus.
+**v2 thresholds (mixed test, without calibration):** 0.6 →
+precision 0.913, recall 0.716; 0.8 → precision 0.964, recall
+0.313. The triage bonus thresholds (+5/+10) were measured for
+v1 and **do not apply to v2** — v2 does not inherit the bonuses.
 
-**Roteador (desenho):** texto com 500+ caracteres → v1; texto
-curto → v2 (sinal fraco). O script de teste local
-(`crivo/ml/hf/infer.py`) já implementa o roteador e o
-unificado. A integração no pipeline (`run_verdicts.py`)
-continua usando só a v1 por enquanto — o pipeline só pontua
-artigos completos.
+**Router (design):** text with 500+ characters → v1; short
+text → v2 (weak signal). The local test script
+(`crivo/ml/hf/infer.py`) already implements the router and the
+unified model. Integration in the pipeline (`run_verdicts.py`)
+still uses only v1 for now — the pipeline only scores full
+articles.
 
-## Mistura v1+v2 e char n-grams (17/11/2026)
+## Mixing v1+v2 and char n-grams (17/11/2026)
 
-O pedido era um modelo único com F1 >= 0,95 nos dois testes.
-Três desenhos foram medidos (`scripts/experiment_mix.py`,
+The request was a single model with F1 >= 0.95 on both tests.
+Three designs were measured (`scripts/experiment_mix.py`,
 `scripts/experiment_char.py`):
 
-- **Ensemble (média das probabilidades v1+v2): PERDEU para as
-  duas.** Artigos F1 0,9597 (v1 sozinha: 0,9708); misto F1
-  0,6479 (v2 sozinha: 0,7676). A média dilui o ponto forte de
-  cada modelo.
-- **Unificado (um modelo, treino = Fake.Br treino + FakenewsBR
-  treino = 35.035 itens):** artigos F1 0,9197, misto F1 0,7754.
-- **Unificado + char n-grams: melhor modelo ÚNICO** — artigos
-  F1 0,9485, misto F1 0,7822 (ganha da v2 nos dois testes;
-  perde da v1 nos artigos).
-- **Limiar ótimo (unificado, misto): 0,5** — já é o ótimo; nada
-  a ganhar com ajuste de limiar.
+- **Ensemble (average of the v1+v2 probabilities): LOST to
+  both.** Articles F1 0.9597 (v1 alone: 0.9708); mixed F1
+  0.6479 (v2 alone: 0.7676). Averaging dilutes each model's
+  strength.
+- **Unified (one model, training = Fake.Br training +
+  FakenewsBR training = 35,035 items):** articles F1 0.9197,
+  mixed F1 0.7754.
+- **Unified + char n-grams: best SINGLE model** — articles
+  F1 0.9485, mixed F1 0.7822 (beats v2 on both tests; loses to
+  v1 on articles).
+- **Optimal threshold (unified, mixed): 0.5** — already
+  optimal; nothing to gain from threshold tuning.
 
-**Char n-grams ajudam os dois modelos no seu terreno:**
-v1+char (artigos) F1 0,9736 (v1 pura: 0,9708); v2+char
-(misto) F1 0,7754 (v2 pura: 0,7676). Por isso `logreg_char`
-virou a configuração oficial dos dois — e o retreino canônico
-(17/11) confirmou os números exatamente: v1 F1 0,9736,
-v2 F1 0,7754.
+**Char n-grams help both models on their own turf:**
+v1+char (articles) F1 0.9736 (plain v1: 0.9708); v2+char
+(mixed) F1 0.7754 (plain v2: 0.7676). That is why `logreg_char`
+became the official configuration for both — and the canonical
+retraining (17/11) confirmed the numbers exactly: v1 F1 0.9736,
+v2 F1 0.7754.
 
-**Insight Kaggle `true` (resolvido):** os 58% de falso
-positivo naquela fonte **não são falha do modelo** — os
-"textos verdadeiros" dela **não são notícias**: são perguntas
-e fragmentos de checagem ("Papa Francisco recusou que fiéis
-beijassem o anel papal?", "Portugal é o país da Europa
-Ocidental com o mais baixo rendimento líquido de salários?").
-É outro gênero de texto (curto, interrogativo, fragmentário)
-— exatamente o que o modelo aprendeu a chamar de falso.
+**Kaggle `true` insight (resolved):** the 58% false-positive
+rate on that source **is not a model failure** — the "true
+texts" there **are not news**: they are fact-check questions
+and fragments ("Papa Francisco recusou que fiéis beijassem o
+anel papal?", "Portugal é o país da Europa Ocidental com o
+mais baixo rendimento líquido de salários?"). It is another
+text genre (short, interrogative, fragmentary) — exactly what
+the model learned to call fake.
 
-## Afinação do unificado (17/11/2026)
+## Tuning the unified model (17/11/2026)
 
-`scripts/tune_unified.py` e `tune_unified_extra.py` mediram
-tudo no mesmo treino unificado, nos dois testes:
+`scripts/tune_unified.py` and `tune_unified_extra.py` measured
+everything on the same unified training set, on both tests:
 
-| Candidato | Artigos F1 | Misto F1 |
+| Candidate | Articles F1 | Mixed F1 |
 |---|---|---|
-| char C=0,5 | 0,9478 | 0,7769 |
-| char C=1,0 | 0,9485 | 0,7822 |
-| char C=2,0 | 0,9513 | 0,7894 |
-| char C=4,0 | 0,9534 | 0,7909 |
-| char C=2,0 + oversample artigos ×2 | 0,9625 | 0,7870 |
-| **char C=4,0 + oversample artigos ×2** | **0,9646** | **0,7924** |
-| LinearSVC | 0,9339 | 0,7859 |
-| ComplementNB | 0,7947 | 0,7264 |
-| Voto (char + SVC + CNB) | 0,9359 | 0,7914 |
-| Voto C=2,0 + oversample ×2 | 0,9471 | 0,7877 |
+| char C=0.5 | 0.9478 | 0.7769 |
+| char C=1.0 | 0.9485 | 0.7822 |
+| char C=2.0 | 0.9513 | 0.7894 |
+| char C=4.0 | 0.9534 | 0.7909 |
+| char C=2.0 + article oversample ×2 | 0.9625 | 0.7870 |
+| **char C=4.0 + oversample articles ×2** | **0.9646** | **0.7924** |
+| LinearSVC | 0.9339 | 0.7859 |
+| ComplementNB | 0.7947 | 0.7264 |
+| Vote (char + SVC + CNB) | 0.9359 | 0.7914 |
+| Vote C=2.0 + oversample ×2 | 0.9471 | 0.7877 |
 
-**O que a tabela diz:** C maior ajuda nos dois testes até
-C=4,0 (a tendência achata — C=2,0 → C=4,0 ganha só +0,0015
-no misto). O oversample dos artigos levanta os artigos sem
-derrubar o misto. O voto é o melhor no misto sem oversample
-(0,7914), mas cai nos artigos (0,9359) — o CNB puxa o voto
-para baixo nos artigos. O **modelo unificado final é
-char C=4,0 + oversample ×2: artigos 0,9646, misto 0,7924**
-(`scripts/train_unified.py --compare`, artefato em
+**What the table says:** larger C helps on both tests up to
+C=4.0 (the trend flattens — C=2.0 → C=4.0 gains only +0.0015
+on mixed). Oversampling the articles lifts articles without
+hurting mixed. Voting is the best on mixed without oversampling
+(0.7914), but drops on articles (0.9359) — CNB drags the vote
+down on articles. The **final unified model is char C=4.0 +
+oversample ×2: articles 0.9646, mixed 0.7924**
+(`scripts/train_unified.py --compare`, artifact in
 `crivo/ml/models/unified/`).
 
-**Teto medido — por que 0,95 no misto não vem do linear:**
-o melhor modelo avaliado no teste misto SEM as fontes `true`
-(Kaggle) e `MuMiN-PT` chega a F1 0,8183. Mesmo sem as duas
-piores fontes, o linear fica 13 pontos abaixo da meta. O
-gargalo é o dado (texto curto, pergunta de checagem, ironia
-e gênero misturado não se separam por contagem de palavras),
-não o ajuste. A nota de rodapé honesta: a escolha de C foi
-avaliada direto nos testes (a CV 3-fold não terminava nesta
-VM), então os números de C ficam levemente otimistas.
+**Measured ceiling — why 0.95 on mixed does not come from a
+linear model:** the best model evaluated on the mixed test
+WITHOUT the `true` (Kaggle) and `MuMiN-PT` sources reaches F1
+0.8183. Even without the two worst sources, the linear model
+stays 13 points below the goal. The bottleneck is the data
+(short text, fact-check questions, irony and mixed genres do
+not separate by word counts), not the tuning. The honest
+footnote: C was chosen by evaluating directly on the test sets
+(3-fold CV would not finish on this VM), so the C numbers are
+slightly optimistic.
 
-## BERTimbau — o caminho para 0,95 no misto (17/11/2026)
+## BERTimbau — the path to 0.95 on mixed (17/11/2026)
 
-O único caminho plausível para o salto no misto é um
-transformer pré-treinado em português, que lê contexto em
-vez de contar palavras. O script `scripts/train_bertimbau.py`
-faz o fine-tuning do BERTimbau
-(`neuralmind/bert-base-portuguese-cased`) nos **mesmos splits**
-dos experimentos lineares (seed 42), com peso por classe (o
-treino é 73% falso) e avaliação nos dois testes, para os
-números serem comparáveis. O notebook
-`crivo/ml/hf/bertimbau-colab.ipynb` roda tudo no Colab
-gratuito (GPU T4, 30–60 min, 3 épocas, batch 32, max_len 256).
+The only plausible path to the jump on mixed is a transformer
+pretrained in Portuguese, which reads context instead of
+counting words. The script `scripts/train_bertimbau.py`
+fine-tunes BERTimbau (`neuralmind/bert-base-portuguese-cased`)
+on the **same splits** as the linear experiments (seed 42),
+with class weights (training is 73% fake) and evaluation on
+both tests, so the numbers are comparable. The notebook
+`crivo/ml/hf/bertimbau-colab.ipynb` runs everything on free
+Colab (T4 GPU, 30–60 min, 3 epochs, batch 32, max_len 256).
 
-**Resultado (treino real, 17/11/2026, GPU T4 do Kaggle — o
-Colab gratuito estava sem GPU disponível; o notebook do Kaggle
-é `crivo/ml/hf/bertimbau-kaggle.ipynb`): artigos F1-macro
-0,9868 (acurácia 0,9868, n=1440) — meta de 0,95 BATIDA, acima
-da v1 (0,9736) e do unificado (0,9646); misto F1-macro 0,8184
-(acurácia 0,8507, n=7319) — o melhor no misto até aqui
-(unificado 0,7924), mas abaixo da meta de 0,95. O misto ficou
-exatamente no teto medido do linear sem as piores fontes
-(0,8183), só que no conjunto COMPLETO — o transformer resolveu
-o problema das fontes `true` e `MuMiN-PT` que travava o linear,
-e mesmo assim bateu no mesmo teto. Conclusão: o gargalo do
-misto é o dado, não o modelo. O script foi verificado antes por
-smoke test na CPU (64 exemplos, 1 época — treino, avaliação e
-salvamento rodaram; os F1 do smoke não valem como métrica, só
-provam que o código funciona). Duas incompatibilidades do
-transformers 5.x foram corrigidas no caminho: `warmup_ratio`
-não existe mais (só `warmup_steps`, calculado como 10% dos
-passos totais) e o collator padrão quebra com textos de
-comprimentos diferentes (`DataCollatorWithPadding`). O notebook
-pinou `transformers==5.23.0`, a versão testada. Os pesos do
-modelo treinado estão na saída da sessão do Kaggle
-(`./bertimbau-v1`) — ainda não foram subidos para o Hub.
+**Result (real training, 17/11/2026, Kaggle T4 GPU — free
+Colab had no GPU available; the Kaggle notebook is
+`crivo/ml/hf/bertimbau-kaggle.ipynb`): articles F1-macro
+0.9868 (accuracy 0.9868, n=1440) — the 0.95 goal BEATEN, above
+v1 (0.9736) and the unified model (0.9646); mixed F1-macro
+0.8184 (accuracy 0.8507, n=7319) — the best on mixed so far
+(unified 0.7924), but below the 0.95 goal. Mixed landed exactly
+on the measured linear ceiling without the worst sources
+(0.8183), but on the FULL set — the transformer solved the
+`true` and `MuMiN-PT` source problem that capped the linear
+model, and still hit the same ceiling. Conclusion: the
+bottleneck on mixed is the data, not the model. The script was
+checked beforehand with a CPU smoke test (64 examples, 1 epoch
+— training, evaluation and saving all ran; the smoke F1 values
+are not metrics, they only prove the code works). Two
+transformers 5.x incompatibilities were fixed along the way:
+`warmup_ratio` no longer exists (only `warmup_steps`, computed
+as 10% of total steps) and the default collator breaks on texts
+of different lengths (`DataCollatorWithPadding`). The notebook
+pins `transformers==5.23.0`, the tested version. The trained
+model weights are in the Kaggle session output
+(`./bertimbau-v1`) — not yet uploaded to the Hub.
 
-**Limpeza do treino não funciona (17/11/2026).** Remover do
-treino os itens não-notícia da fonte `true` e os textos <100
-chars piorou o misto (F1 0,7924 → 0,7770) e elevou o falso
-positivo na fonte `true` para 94,0% — os fragmentos-pergunta
-eram o único contrapeso curto-verdadeiro contra o atalho
-"texto curto → falso". A direção certa é a oposta: manter ou
-reforçar os verdadeiros curtos.
+**Training-data cleaning does not work (17/11/2026).**
+Removing the non-news items of the `true` source and texts
+<100 chars from training made mixed worse (F1 0.7924 →
+0.7770) and raised the false-positive rate on the `true`
+source to 94.0% — the question fragments were the only
+short-true counterweight against the "short text → fake"
+shortcut. The right direction is the opposite: keep or
+reinforce short true items.
 
-## Reproduzir
+## Reproduce
 
 ```bash
-# 1. Baixe o corpus (não vai para o repo — 146 MB)
+# 1. Download the corpus (not committed to the repo — 146 MB)
 git clone --depth 1 https://github.com/roneysco/Fake.br-Corpus.git \
   ~/workspace/crivo/fakebr-corpus
 
-# 2. Venv de ML (o repo é só biblioteca padrão; o ML é opcional)
+# 2. ML venv (the repo is standard library only; ML is optional)
 python3 -m venv .venv-ml
 .venv-ml/bin/pip install scikit-learn pandas
 
-# 3. Treine a v1 (gera crivo/ml/models/model.joblib + metrics.json)
+# 3. Train v1 (generates crivo/ml/models/model.joblib + metrics.json)
 .venv-ml/bin/python scripts/train_classifier.py
 
-# 3b. Treine a v2 (precisa do CSV do FakenewsBR — ver
-# crivo/ml/fakenewsbr.py para o download; gera
+# 3b. Train v2 (needs the FakenewsBR CSV — see
+# crivo/ml/fakenewsbr.py for the download; generates
 # crivo/ml/models/v2/model.joblib + metrics.json)
 .venv-ml/bin/python scripts/train_classifier_v2.py \
   --fakenewsbr ~/workspace/crivo/fakenewsbr/FakenewsBR_factchecked.csv \
   --fakebr ~/workspace/crivo/fakebr-corpus \
   --out crivo/ml/models/v2
 
-# 3c. Treine o unificado (o melhor modelo único; gera
+# 3c. Train the unified model (the best single model; generates
 # crivo/ml/models/unified/model.joblib + metrics.json)
 .venv-ml/bin/python scripts/train_unified.py \
   --fakenewsbr ~/workspace/crivo/fakenewsbr/FakenewsBR_factchecked.csv \
   --fakebr ~/workspace/crivo/fakebr-corpus \
   --out crivo/ml/models/unified --compare
 
-# 3d. BERTimbau (só no Colab com GPU — ver
-# crivo/ml/hf/bertimbau-colab.ipynb; o smoke test roda na CPU)
+# 3d. BERTimbau (GPU Colab only — see
+# crivo/ml/hf/bertimbau-colab.ipynb; the smoke test runs on CPU)
 .venv-bert/bin/python scripts/train_bertimbau.py --smoke \
   --fakenewsbr ~/workspace/crivo/fakenewsbr/FakenewsBR_factchecked.csv \
   --fakebr ~/workspace/crivo/fakebr-corpus \
   --out /tmp/bertimbau-smoke
 
-# 4. Use no pipeline (score registrado, veredito inalterado)
+# 4. Use in the pipeline (score recorded, verdict unchanged)
 python3 scripts/run_verdicts.py --limit 10 \
   --ml-model crivo/ml/models/model.joblib
 ```
 
-Os testes de ML (`tests/test_ml.py`) pulam sozinhos quando o
-scikit-learn não está instalado — o CI continua verde sem ele.
-Os testes de integração (bônus de triagem, suspeita registrada
-sem mudar o veredito) usam um modelo falso e rodam sempre.
+ML tests (`tests/test_ml.py`) skip on their own when
+scikit-learn is not installed — CI stays green without it.
+Integration tests (triage bonus, suspicion recorded without
+changing the verdict) use a fake model and always run.
 
-## Publicação no Hugging Face
+## Publishing on Hugging Face
 
-Os artefatos são os pipelines inteiros (vetorizador + modelo),
-salvos com joblib: `crivo/ml/models/model.joblib` (v1),
-`crivo/ml/models/v2/model.joblib` (v2, sem calibração) e
-`crivo/ml/models/unified/model.joblib` (unificado, C=4,0 +
-oversample ×2), cada um com seu `metrics.json`. Os arquivos de
-publicação (model card + demo Gradio com roteador v1/v2 e
-seletor do unificado) estão em `crivo/ml/hf/` — os modelos
-sobem para o Hub com a conta do idealizador; ver
-`crivo/ml/hf/README.md` e `crivo/ml/hf/README-publicar.md`.
-O fine-tuning do BERTimbau, quando rodar no Colab, sobe para
-o mesmo repositório (`bertimbau/`).
+The artifacts are the full pipelines (vectorizer + model),
+saved with joblib: `crivo/ml/models/model.joblib` (v1),
+`crivo/ml/models/v2/model.joblib` (v2, without calibration) and
+`crivo/ml/models/unified/model.joblib` (unified, C=4.0 +
+oversample ×2), each with its `metrics.json`. The publishing
+files (model card + Gradio demo with the v1/v2 router and the
+unified selector) are in `crivo/ml/hf/` — the models go to the
+Hub with the creator's account; see `crivo/ml/hf/README.md`
+and `crivo/ml/hf/README-publicar.md`. The BERTimbau
+fine-tuning, once run on Colab, goes to the same repository
+(`bertimbau/`).
 
-## Citação dos corpora
+## Corpus citations
 
 Monteiro R.A., Santos R.L.S., Pardo T.A.S., de Almeida T.A.,
 Ruiz E.E.S., Vale O.A. (2018). *Contributions to the Study of
@@ -335,6 +340,6 @@ Fake News in Portuguese: New Corpus and Automatic Detection
 Results.* PROPOR 2018, LNCS vol. 11122. Springer.
 
 Silva et al. (2026). *FakenewsBR: A Unified Corpus for Fake News
-Detection in Portuguese.* DSW 2026. Corpus unificado em
-https://github.com/AKCIT-FN/fakenews-data (espelho do CSV no
+Detection in Portuguese.* DSW 2026. Unified corpus at
+https://github.com/AKCIT-FN/fakenews-data (CSV mirror on the
 Hugging Face Hub: `kauandivino/FakenewsBR`).
