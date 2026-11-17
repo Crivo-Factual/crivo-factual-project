@@ -460,21 +460,23 @@ and the demo (selector in `crivo/ml/hf/app.py`, score in
 
 **BERTimbau — real training run 17/11/2026 (Kaggle T4 GPU;
 free Colab had no GPU — Kaggle notebook in
-`crivo/ml/hf/bertimbau-kaggle.ipynb`).** Articles F1 0.9868
-(accuracy 0.9868, n=1440) — the 0.95 goal beaten, better than
-v1 (0.9736) and the unified model (0.9646). Mixed F1 0.8184
-(accuracy 0.8507, n=7319) — the best model on mixed so far
-(unified 0.7924), but below 0.95. Mixed landed exactly on the
-measured linear ceiling without the worst sources (0.8183), on
-the full set — the bottleneck is the data, not the model.
-Script `scripts/train_bertimbau.py` (fine-tuning, same splits,
-class weights). Fixed along the way: transformers 5.x has no
-`warmup_ratio` (only `warmup_steps`, 10% of steps) and the
-default collator breaks without dynamic padding
-(`DataCollatorWithPadding`); the smoke sample was all fake
-(infinite weight) — now stratified. Notebook pins
-`transformers==5.23.0`. Model weights in the Kaggle session
-output (`./bertimbau-v1`) — not yet uploaded to the Hub.
+`crivo/ml/hf/bertimbau-kaggle.ipynb`).** Articles F1 0.9854
+(accuracy 0.9854, n=1440) — the 0.95 goal beaten, better than
+v1 (0.9736) and the unified model (0.9646). Mixed F1 0.8243
+(accuracy 0.8561, n=7319) — the best model on mixed so far
+(unified 0.7924), but below 0.95. Mixed clears the measured
+linear ceiling without the worst sources (0.8183) by 0.6 points,
+on the full set — the bottleneck is the data, not the model.
+(Re-run of the training for the Hub upload; first run: articles
+0.9868 / mixed 0.8184.) Script `scripts/train_bertimbau.py`
+(fine-tuning, same splits, class weights). Fixed along the way:
+transformers 5.x has no `warmup_ratio` (only `warmup_steps`,
+10% of steps) and the default collator breaks without dynamic
+padding (`DataCollatorWithPadding`); the smoke sample was all
+fake (infinite weight) — now stratified. Notebook pins
+`transformers==5.23.0`. Model weights published on the Hub
+(`brenindexdev/crivo-factual-fakebr`, under `bertimbau/`,
+commit `a80b59bb`).
 
 **Training-data cleaning — tested and REJECTED 17/11/2026.**
 Hypothesis: removing the non-news items of the `true` source
