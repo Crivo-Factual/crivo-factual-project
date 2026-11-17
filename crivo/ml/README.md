@@ -259,6 +259,14 @@ pinou `transformers==5.23.0`, a versão testada. Os pesos do
 modelo treinado estão na saída da sessão do Kaggle
 (`./bertimbau-v1`) — ainda não foram subidos para o Hub.
 
+**Limpeza do treino não funciona (17/11/2026).** Remover do
+treino os itens não-notícia da fonte `true` e os textos <100
+chars piorou o misto (F1 0,7924 → 0,7770) e elevou o falso
+positivo na fonte `true` para 94,0% — os fragmentos-pergunta
+eram o único contrapeso curto-verdadeiro contra o atalho
+"texto curto → falso". A direção certa é a oposta: manter ou
+reforçar os verdadeiros curtos.
+
 ## Reproduzir
 
 ```bash
