@@ -55,6 +55,17 @@ Free alternatives for the demo:
   account qualifies (does not fit the GenAI deadline).
 - **PRO (US$ 9/month):** only if he wants to pay — not the case.
 
+**Watch out when publishing BERTimbau from Kaggle:** the
+publish cell must run **in the same session as the training**.
+If the Kaggle session restarts after training, the
+`./bertimbau-v1` folder disappears from the new session's disk
+(the sidebar shows the saved outputs of the previous session,
+not the live disk) and `upload_folder` fails with `ValueError:
+... is not a directory`. In that case, either train again in
+the current session and publish right after, or download the
+folder from the sidebar download icon and upload the files
+through the Hub web UI, inside the `bertimbau/` folder.
+
 `crivo/ml/hf/app.py` already points to the real repository
 (`brenindexdev/crivo-factual-fakebr`). The Space downloads the
 three models from the repository in step 2 on first run: the
