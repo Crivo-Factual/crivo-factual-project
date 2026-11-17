@@ -260,8 +260,8 @@ transformers 5.x incompatibilities were fixed along the way:
 as 10% of total steps) and the default collator breaks on texts
 of different lengths (`DataCollatorWithPadding`). The notebook
 pins `transformers==5.23.0`, the tested version. The trained
-model weights are in the Kaggle session output
-(`./bertimbau-v1`) — not yet uploaded to the Hub.
+model weights are published to the Hub under `bertimbau/` in
+`brenindexdev/crivo-factual-fakebr`.
 
 **Training-data cleaning does not work (17/11/2026).**
 Removing the non-news items of the `true` source and texts
@@ -271,6 +271,21 @@ source to 94.0% — the question fragments were the only
 short-true counterweight against the "short text → fake"
 shortcut. The right direction is the opposite: keep or
 reinforce short true items.
+
+**Current-politics test set (17/11/2026).** A 20-item test set
+(10 true / 10 false, Nov 2026 Brazilian politics — real g1
+articles and claims debunked by Lupa / Aos Fatos;
+`crivo/ml/data/current_politics_test.json`, scored by
+`scripts/eval_current_politics.py`, test only, never train on
+it): accuracy 0.85 for v2, unified, BERTimbau and the router
+(v1: 0.75). Articles: 1.00 for every model (n=8). Short claims:
+0.75 (n=12) — every model over-flags short true claims as
+false (false-positive rate on true items: v1 0.50, v2/unified
+0.20, BERTimbau 0.30). The hand-written EC 141 article that
+scored v1 0.95 is the exception that proves the rule: 511
+chars of dense claims, not a real article — real full-length
+articles score 0.01–0.11 on v1. BERTimbau does not fix the
+short regime.
 
 **Reinforcing short true items does not work either
 (17/11/2026).** Duplicating ×2/×3 the short true items in
