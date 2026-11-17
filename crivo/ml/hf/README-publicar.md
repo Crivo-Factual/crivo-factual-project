@@ -65,9 +65,10 @@ Free alternatives for the demo:
   Authorized OAuth Apps → Streamlit → Organization access →
   Grant (Crivo-Factual). Until that grant, the deploy form says
   "This repository does not exist" — the repo exists, Streamlit
-  just cannot see it yet. **17/11/2026: the grant did NOT take
-  effect even after granting it, so the repository was made
-  public to unblock the deploy.** Live demo:
+  just cannot see it yet. **17/11/2026: the OAuth grant worked,
+  but the deploy form only listed public repositories — even
+  with the grant, the private org repo did not appear. The
+  repository was made public to unblock the deploy.** Live demo:
   https://crivo-factual-demo.streamlit.app/ (verified HTTP 200).
   The public tree was scanned before publishing: no secrets
   (only `.env.example`). Do NOT use the Marketplace listing
