@@ -1,12 +1,17 @@
 # Classificador de veracidade (ML)
 
-Dois modelos, um roteador por tamanho do texto:
+Três modelos, um roteador por tamanho do texto — e um modelo
+único:
 
 - **v1 — especialista em artigos** (Fake.Br Corpus, 7.200 notícias
   em pares alinhados). Só opina a partir de 500 caracteres.
 - **v2 — generalista** (FakenewsBR, 36.594 itens: notícias, tweets,
   WhatsApp, COVID). Opina sobre texto curto, mas com viés de
   falso positivo — é sinal fraco, nunca veredito.
+- **unificado — um só modelo para qualquer tamanho** (Fake.Br +
+  FakenewsBR, 35.035 itens). Artigos F1 0,9646, misto F1 0,7924 —
+  o melhor modelo único; só perde da v1 nos artigos (0,9736) e
+  bate a v2 no misto (0,7754).
 
 O desenho continua o mesmo: o ML é **sinal de triagem, nunca
 veredito** (ver a seção abaixo).
@@ -141,9 +146,106 @@ e **não valem para a v2** — a v2 não herda os bônus.
 
 **Roteador (desenho):** texto com 500+ caracteres → v1; texto
 curto → v2 (sinal fraco). O script de teste local
-(`crivo/ml/hf/infer.py`) já implementa o roteador. A integração
-no pipeline (`run_verdicts.py`) continua usando só a v1 por
-enquanto — o pipeline só pontua artigos completos.
+(`crivo/ml/hf/infer.py`) já implementa o roteador e o
+unificado. A integração no pipeline (`run_verdicts.py`)
+continua usando só a v1 por enquanto — o pipeline só pontua
+artigos completos.
+
+## Mistura v1+v2 e char n-grams (17/11/2026)
+
+O pedido era um modelo único com F1 >= 0,95 nos dois testes.
+Três desenhos foram medidos (`scripts/experiment_mix.py`,
+`scripts/experiment_char.py`):
+
+- **Ensemble (média das probabilidades v1+v2): PERDEU para as
+  duas.** Artigos F1 0,9597 (v1 sozinha: 0,9708); misto F1
+  0,6479 (v2 sozinha: 0,7676). A média dilui o ponto forte de
+  cada modelo.
+- **Unificado (um modelo, treino = Fake.Br treino + FakenewsBR
+  treino = 35.035 itens):** artigos F1 0,9197, misto F1 0,7754.
+- **Unificado + char n-grams: melhor modelo ÚNICO** — artigos
+  F1 0,9485, misto F1 0,7822 (ganha da v2 nos dois testes;
+  perde da v1 nos artigos).
+- **Limiar ótimo (unificado, misto): 0,5** — já é o ótimo; nada
+  a ganhar com ajuste de limiar.
+
+**Char n-grams ajudam os dois modelos no seu terreno:**
+v1+char (artigos) F1 0,9736 (v1 pura: 0,9708); v2+char
+(misto) F1 0,7754 (v2 pura: 0,7676). Por isso `logreg_char`
+virou a configuração oficial dos dois — e o retreino canônico
+(17/11) confirmou os números exatamente: v1 F1 0,9736,
+v2 F1 0,7754.
+
+**Insight Kaggle `true` (resolvido):** os 58% de falso
+positivo naquela fonte **não são falha do modelo** — os
+"textos verdadeiros" dela **não são notícias**: são perguntas
+e fragmentos de checagem ("Papa Francisco recusou que fiéis
+beijassem o anel papal?", "Portugal é o país da Europa
+Ocidental com o mais baixo rendimento líquido de salários?").
+É outro gênero de texto (curto, interrogativo, fragmentário)
+— exatamente o que o modelo aprendeu a chamar de falso.
+
+## Afinação do unificado (17/11/2026)
+
+`scripts/tune_unified.py` e `tune_unified_extra.py` mediram
+tudo no mesmo treino unificado, nos dois testes:
+
+| Candidato | Artigos F1 | Misto F1 |
+|---|---|---|
+| char C=0,5 | 0,9478 | 0,7769 |
+| char C=1,0 | 0,9485 | 0,7822 |
+| char C=2,0 | 0,9513 | 0,7894 |
+| char C=4,0 | 0,9534 | 0,7909 |
+| char C=2,0 + oversample artigos ×2 | 0,9625 | 0,7870 |
+| **char C=4,0 + oversample artigos ×2** | **0,9646** | **0,7924** |
+| LinearSVC | 0,9339 | 0,7859 |
+| ComplementNB | 0,7947 | 0,7264 |
+| Voto (char + SVC + CNB) | 0,9359 | 0,7914 |
+| Voto C=2,0 + oversample ×2 | 0,9471 | 0,7877 |
+
+**O que a tabela diz:** C maior ajuda nos dois testes até
+C=4,0 (a tendência achata — C=2,0 → C=4,0 ganha só +0,0015
+no misto). O oversample dos artigos levanta os artigos sem
+derrubar o misto. O voto é o melhor no misto sem oversample
+(0,7914), mas cai nos artigos (0,9359) — o CNB puxa o voto
+para baixo nos artigos. O **modelo unificado final é
+char C=4,0 + oversample ×2: artigos 0,9646, misto 0,7924**
+(`scripts/train_unified.py --compare`, artefato em
+`crivo/ml/models/unified/`).
+
+**Teto medido — por que 0,95 no misto não vem do linear:**
+o melhor modelo avaliado no teste misto SEM as fontes `true`
+(Kaggle) e `MuMiN-PT` chega a F1 0,8183. Mesmo sem as duas
+piores fontes, o linear fica 13 pontos abaixo da meta. O
+gargalo é o dado (texto curto, pergunta de checagem, ironia
+e gênero misturado não se separam por contagem de palavras),
+não o ajuste. A nota de rodapé honesta: a escolha de C foi
+avaliada direto nos testes (a CV 3-fold não terminava nesta
+VM), então os números de C ficam levemente otimistas.
+
+## BERTimbau — o caminho para 0,95 no misto (17/11/2026)
+
+O único caminho plausível para o salto no misto é um
+transformer pré-treinado em português, que lê contexto em
+vez de contar palavras. O script `scripts/train_bertimbau.py`
+faz o fine-tuning do BERTimbau
+(`neuralmind/bert-base-portuguese-cased`) nos **mesmos splits**
+dos experimentos lineares (seed 42), com peso por classe (o
+treino é 73% falso) e avaliação nos dois testes, para os
+números serem comparáveis. O notebook
+`crivo/ml/hf/bertimbau-colab.ipynb` roda tudo no Colab
+gratuito (GPU T4, 30–60 min, 3 épocas, batch 32, max_len 256).
+
+**Status:** o script foi verificado por smoke test na CPU
+(64 exemplos, 1 época — treino, avaliação e salvamento
+rodaram; os F1 do smoke não valem como métrica, só provam que
+o código funciona). O treino real ainda não rodou — precisa
+da GPU do Colab. Duas incompatibilidades do transformers 5.x
+foram corrigidas no caminho: `warmup_ratio` não existe mais
+(só `warmup_steps`, calculado como 10% dos passos totais) e
+o collator padrão quebra com textos de comprimentos
+diferentes (`DataCollatorWithPadding`). O notebook pinou
+`transformers==5.23.0`, a versão testada.
 
 ## Reproduzir
 
@@ -167,6 +269,20 @@ python3 -m venv .venv-ml
   --fakebr ~/workspace/crivo/fakebr-corpus \
   --out crivo/ml/models/v2
 
+# 3c. Treine o unificado (o melhor modelo único; gera
+# crivo/ml/models/unified/model.joblib + metrics.json)
+.venv-ml/bin/python scripts/train_unified.py \
+  --fakenewsbr ~/workspace/crivo/fakenewsbr/FakenewsBR_factchecked.csv \
+  --fakebr ~/workspace/crivo/fakebr-corpus \
+  --out crivo/ml/models/unified --compare
+
+# 3d. BERTimbau (só no Colab com GPU — ver
+# crivo/ml/hf/bertimbau-colab.ipynb; o smoke test roda na CPU)
+.venv-bert/bin/python scripts/train_bertimbau.py --smoke \
+  --fakenewsbr ~/workspace/crivo/fakenewsbr/FakenewsBR_factchecked.csv \
+  --fakebr ~/workspace/crivo/fakebr-corpus \
+  --out /tmp/bertimbau-smoke
+
 # 4. Use no pipeline (score registrado, veredito inalterado)
 python3 scripts/run_verdicts.py --limit 10 \
   --ml-model crivo/ml/models/model.joblib
@@ -180,12 +296,16 @@ sem mudar o veredito) usam um modelo falso e rodam sempre.
 ## Publicação no Hugging Face
 
 Os artefatos são os pipelines inteiros (vetorizador + modelo),
-salvos com joblib: `crivo/ml/models/model.joblib` (v1) e
-`crivo/ml/models/v2/model.joblib` (v2, sem calibração), cada um
-com seu `metrics.json`. Os arquivos de publicação (model card +
-demo Gradio com o roteador v1/v2) estão em `crivo/ml/hf/` — os
-modelos sobem para o Hub com a conta do idealizador; ver
+salvos com joblib: `crivo/ml/models/model.joblib` (v1),
+`crivo/ml/models/v2/model.joblib` (v2, sem calibração) e
+`crivo/ml/models/unified/model.joblib` (unificado, C=4,0 +
+oversample ×2), cada um com seu `metrics.json`. Os arquivos de
+publicação (model card + demo Gradio com roteador v1/v2 e
+seletor do unificado) estão em `crivo/ml/hf/` — os modelos
+sobem para o Hub com a conta do idealizador; ver
 `crivo/ml/hf/README.md` e `crivo/ml/hf/README-publicar.md`.
+O fine-tuning do BERTimbau, quando rodar no Colab, sobe para
+o mesmo repositório (`bertimbau/`).
 
 ## Citação dos corpora
 
