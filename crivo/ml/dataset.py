@@ -23,7 +23,8 @@ from dataclasses import dataclass
 class NewsItem:
     text: str
     label: int  # 0 = verdadeira, 1 = falsa
-    pair: str  # nome do arquivo (o par alinhado)
+    pair: str  # nome do arquivo (o par alinhado) ou id único da linha
+    source: str = ""  # corpus de origem (ex.: "Fake.br", "fakes")
 
 
 def load_fakebr(corpus_dir: str) -> list[NewsItem]:
