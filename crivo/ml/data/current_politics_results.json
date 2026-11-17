@@ -1,0 +1,262 @@
+{
+  "n": 20,
+  "rows": [
+    {
+      "id": "true_art_stj_buzzi",
+      "label": 0,
+      "kind": "article",
+      "chars": 4071,
+      "v1": 0.11419708056118832,
+      "v2": 0.06908132062371425,
+      "unified": 0.039560636353863254,
+      "bertimbau": 0.0011921029072254896,
+      "router": 0.11419708056118832
+    },
+    {
+      "id": "true_art_pf_senado",
+      "label": 0,
+      "kind": "article",
+      "chars": 5787,
+      "v1": 0.03972289699730627,
+      "v2": 0.06595299109885586,
+      "unified": 0.013295870974234644,
+      "bertimbau": 0.009052294306457043,
+      "router": 0.03972289699730627
+    },
+    {
+      "id": "true_art_ajuste_fiscal",
+      "label": 0,
+      "kind": "article",
+      "chars": 5282,
+      "v1": 0.044948001568967715,
+      "v2": 0.02265451878197979,
+      "unified": 0.002339940262025143,
+      "bertimbau": 0.0005550144705921412,
+      "router": 0.044948001568967715
+    },
+    {
+      "id": "true_art_dino_5x2",
+      "label": 0,
+      "kind": "article",
+      "chars": 6278,
+      "v1": 0.010409143870213538,
+      "v2": 0.006269774207675769,
+      "unified": 0.00025488809590984077,
+      "bertimbau": 0.0005447579314932227,
+      "router": 0.010409143870213538
+    },
+    {
+      "id": "true_art_saude_9bi",
+      "label": 0,
+      "kind": "article",
+      "chars": 7862,
+      "v1": 0.02014503632156682,
+      "v2": 0.01651282946801617,
+      "unified": 0.0007350952015660575,
+      "bertimbau": 0.0006207851693034172,
+      "router": 0.02014503632156682
+    },
+    {
+      "id": "true_short_stj_buzzi",
+      "label": 0,
+      "kind": "short",
+      "chars": 108,
+      "v1": 0.9913063201609729,
+      "v2": 0.7314371761198944,
+      "unified": 0.9144236908662756,
+      "bertimbau": 0.9879683256149292,
+      "router": 0.7314371761198944
+    },
+    {
+      "id": "true_short_pf_senado",
+      "label": 0,
+      "kind": "short",
+      "chars": 113,
+      "v1": 0.9451277705654844,
+      "v2": 0.27079662885886324,
+      "unified": 0.3067086440741999,
+      "bertimbau": 0.9748488068580627,
+      "router": 0.27079662885886324
+    },
+    {
+      "id": "true_short_ec141",
+      "label": 0,
+      "kind": "short",
+      "chars": 73,
+      "v1": 0.9945002851436887,
+      "v2": 0.8091429279132939,
+      "unified": 0.9146590009251262,
+      "bertimbau": 0.9904312491416931,
+      "router": 0.8091429279132939
+    },
+    {
+      "id": "true_short_ajuste_fiscal",
+      "label": 0,
+      "kind": "short",
+      "chars": 110,
+      "v1": 0.8033655592706533,
+      "v2": 0.007903704086419647,
+      "unified": 0.002450143114995277,
+      "bertimbau": 0.01037404965609312,
+      "router": 0.007903704086419647
+    },
+    {
+      "id": "true_short_pf_vorcaro",
+      "label": 0,
+      "kind": "short",
+      "chars": 88,
+      "v1": 0.7654270805548317,
+      "v2": 0.011725049120321187,
+      "unified": 0.0027538190743991975,
+      "bertimbau": 0.4969000220298767,
+      "router": 0.011725049120321187
+    },
+    {
+      "id": "false_short_apagao",
+      "label": 1,
+      "kind": "short",
+      "chars": 102,
+      "v1": 0.9883084251785055,
+      "v2": 0.6818368350737799,
+      "unified": 0.8930490285934575,
+      "bertimbau": 0.9885558485984802,
+      "router": 0.6818368350737799
+    },
+    {
+      "id": "false_short_cop31",
+      "label": 1,
+      "kind": "short",
+      "chars": 73,
+      "v1": 0.9958299171924164,
+      "v2": 0.9429641936812455,
+      "unified": 0.9792725665142084,
+      "bertimbau": 0.9945856928825378,
+      "router": 0.9429641936812455
+    },
+    {
+      "id": "false_short_blusinhas",
+      "label": 1,
+      "kind": "short",
+      "chars": 40,
+      "v1": 0.9917471213831163,
+      "v2": 0.6927371286641557,
+      "unified": 0.7801086447690734,
+      "bertimbau": 0.8884611129760742,
+      "router": 0.6927371286641557
+    },
+    {
+      "id": "false_short_pixmei",
+      "label": 1,
+      "kind": "short",
+      "chars": 52,
+      "v1": 0.9961289023043151,
+      "v2": 0.9484070994002944,
+      "unified": 0.9938738138273212,
+      "bertimbau": 0.9435227513313293,
+      "router": 0.9484070994002944
+    },
+    {
+      "id": "false_short_bolsa_fim",
+      "label": 1,
+      "kind": "short",
+      "chars": 66,
+      "v1": 0.9930808504526007,
+      "v2": 0.9090816602550575,
+      "unified": 0.9768944041191367,
+      "bertimbau": 0.9920423626899719,
+      "router": 0.9090816602550575
+    },
+    {
+      "id": "false_short_eua_camara",
+      "label": 1,
+      "kind": "short",
+      "chars": 96,
+      "v1": 0.9896913929268037,
+      "v2": 0.4094826569352349,
+      "unified": 0.4314432269640044,
+      "bertimbau": 0.5995814800262451,
+      "router": 0.4094826569352349
+    },
+    {
+      "id": "false_short_pe_de_meia",
+      "label": 1,
+      "kind": "short",
+      "chars": 48,
+      "v1": 0.9891415062070972,
+      "v2": 0.6022328086900159,
+      "unified": 0.5707223113503468,
+      "bertimbau": 0.7803913950920105,
+      "router": 0.6022328086900159
+    },
+    {
+      "id": "false_long_apagao",
+      "label": 1,
+      "kind": "article",
+      "chars": 380,
+      "v1": 0.9627100060282425,
+      "v2": 0.7056713064721105,
+      "unified": 0.8760736743675251,
+      "bertimbau": 0.9778254628181458,
+      "router": 0.7056713064721105
+    },
+    {
+      "id": "false_long_cop31",
+      "label": 1,
+      "kind": "article",
+      "chars": 308,
+      "v1": 0.9911563306542616,
+      "v2": 0.9674628730481898,
+      "unified": 0.9969439014910362,
+      "bertimbau": 0.9985291957855225,
+      "router": 0.9674628730481898
+    },
+    {
+      "id": "false_long_bolsa_fim",
+      "label": 1,
+      "kind": "article",
+      "chars": 182,
+      "v1": 0.9928835113811489,
+      "v2": 0.9428470482945455,
+      "unified": 0.9896648212158414,
+      "bertimbau": 0.9878994822502136,
+      "router": 0.9428470482945455
+    }
+  ],
+  "summary": {
+    "v1": {
+      "acc": 0.75,
+      "acc_articles": 1.0,
+      "acc_short": 0.5833333333333334,
+      "fp_on_true": 0.5,
+      "recall_false": 1.0
+    },
+    "v2": {
+      "acc": 0.85,
+      "acc_articles": 1.0,
+      "acc_short": 0.75,
+      "fp_on_true": 0.2,
+      "recall_false": 0.9
+    },
+    "unified": {
+      "acc": 0.85,
+      "acc_articles": 1.0,
+      "acc_short": 0.75,
+      "fp_on_true": 0.2,
+      "recall_false": 0.9
+    },
+    "bertimbau": {
+      "acc": 0.85,
+      "acc_articles": 1.0,
+      "acc_short": 0.75,
+      "fp_on_true": 0.3,
+      "recall_false": 1.0
+    },
+    "router": {
+      "acc": 0.85,
+      "acc_articles": 1.0,
+      "acc_short": 0.75,
+      "fp_on_true": 0.2,
+      "recall_false": 0.9
+    }
+  }
+}
