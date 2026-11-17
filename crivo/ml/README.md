@@ -48,6 +48,24 @@ o **texto completo do artigo** (`get_item_text`), nunca sobre o
 título. Em artigos completos o comportamento é o esperado:
 verdadeiros do corpus pontuam 0,04–0,18; falsos, 0,69–0,93.
 
+## Calibração e limiares medidos (17/11/2026)
+
+As probabilidades **não são chances calibradas** — são scores de
+ranking. Brier 0,0418 (bom no geral), mas as faixas do meio
+desviam: na faixa 0,1–0,3, 0% são falsas (o modelo diz 17%); na
+0,3–0,5, 21% são falsas (diz 39%); na 0,7–0,9, 99% são falsas
+(diz 83%). Nos extremos ele acerta: 0,0–0,1 tem 0% de falsas e
+0,9–1,0 tem 100%. Leia o score como "mais suspeito / menos
+suspeito", não como "x% de chance de ser falso".
+
+Os limiares do bônus de triagem foram medidos no teste (n=1440),
+não chutados: **0,6 → precisão 0,977, recall 0,950** (bônus +5) e
+**0,8 → precisão 0,998, recall 0,721** (bônus +10). Ou seja: acima
+de 0,8 quase nunca é falso positivo, mas só pega 72% das falsas.
+Dos 42 erros do teste, o tamanho médio é 2.337 chars (média do
+teste: 3.951) — o modelo erra mais em textos médios, não só nos
+curtos (só 4 dos 42 têm menos de 1.000 chars).
+
 ## Reproduzir
 
 ```bash
