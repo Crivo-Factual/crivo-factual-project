@@ -21,7 +21,7 @@ import joblib
 from huggingface_hub import hf_hub_download
 
 # Troque pelo seu repositório no Hub (o mesmo nome do model card).
-HF_MODEL_REPO = "SEU_USUARIO/crivo-factual-fakebr"
+HF_MODEL_REPO = "brenindexdev/crivo-factual-fakebr"
 
 # Mínimo de texto para a v1 opinar (ver crivo/ml/classifier.py).
 MIN_CHARS_V1 = 500
