@@ -1,33 +1,43 @@
 """Crivo Factual — veracity classifier demo (Streamlit).
 
 Paste a text in Portuguese and see the estimated probability
-that it is false. Same models and thresholds as the Gradio demo
-(`crivo/ml/hf/app.py`), rewritten for Streamlit Community Cloud.
+that it is false.
 
-Models (downloaded from the Hub on first run):
-- v1 (Fake.Br, full articles): only scores texts of 500+ chars.
-- v2 (FakenewsBR, news + tweets + WhatsApp): scores short text,
-  but with a false-positive bias — a weak signal.
-- unified (Fake.Br + FakenewsBR): one model for any length.
+Models:
+- BERTimbau (default, via the Hugging Face Inference API):
+  the published weights run on Hugging Face's servers, so the
+  app stays light — no torch, no 440 MB download. Needs an
+  HF_TOKEN with inference permission in the app's Secrets
+  (Streamlit dashboard -> Settings -> Secrets). If the API is
+  unavailable, the demo falls back to the unified model and
+  says so.
+- Unified (Fake.Br + FakenewsBR): one local model for any
+  length, downloaded from the Hub on first run.
+- Router: v1 (Fake.Br, full articles, only 500+ chars) or v2
+  (FakenewsBR, short text) by length.
 
 Triage signal, not a verdict: in Crivo Factual, the verdict is
 decided by deterministic rules over primary sources, never by
 this model.
 
-BERTimbau is intentionally NOT loaded here: Streamlit Community
-Cloud gives a free app 1 GB of RAM, and torch + a 440 MB BERT
-model does not fit in it. The weights are published in the same
-Hub repository, under `bertimbau/`.
+Measured limits (current-politics test set, Nov 2026, n=20):
+articles 100% correct for every model (n=8); short claims
+75% (n=12) — every model over-flags short true claims as
+false. Short-text scores are a weak signal.
 """
+
+import time
 
 import joblib
 import streamlit as st
-from huggingface_hub import hf_hub_download
+from huggingface_hub import InferenceClient, hf_hub_download
 
 HF_MODEL_REPO = "brenindexdev/crivo-factual-fakebr"
 
 # Minimum text length for v1 to score (see crivo/ml/classifier.py).
 MIN_CHARS_V1 = 500
+# Short text: every model over-flags short true claims (measured).
+SHORT_TEXT_CHARS = 500
 
 EXAMPLE_ARTICLE = (
     "A Câmara dos Deputados aprovou nesta terça-feira o projeto "
@@ -50,6 +60,32 @@ def load(name):
     return joblib.load(path)
 
 
+def _bertimbau_score(text, token):
+    """P(fake) from the Inference API. Raises on any failure;
+    the caller decides the fallback. Retries once while the
+    model is loading on the server (503)."""
+    client = InferenceClient(model=HF_MODEL_REPO, token=token, timeout=120)
+    last_error = None
+    for attempt in range(3):
+        try:
+            out = client.text_classification(text)
+            break
+        except Exception as exc:  # noqa: BLE001 - surfaced as fallback
+            last_error = exc
+            if "loading" in str(exc).lower() and attempt < 2:
+                time.sleep(15)
+                continue
+            raise
+    else:
+        raise last_error
+    for entry in out:
+        if entry["label"] in ("LABEL_1", "fake", "FAKE"):
+            return float(entry["score"])
+    # Single-label response: the top label is the answer.
+    top = max(out, key=lambda e: e["score"])
+    return float(top["score"]) if top["label"] in ("LABEL_1", "fake", "FAKE") else 1.0 - float(top["score"])
+
+
 def reading(proba):
     if proba >= 0.8:
         return "likely false"
@@ -64,6 +100,29 @@ def classify(text, mode):
     text = (text or "").strip()
     if not text:
         return None, "", "Paste a text to classify."
+    if mode.startswith("BERTimbau"):
+        try:
+            token = st.secrets.get("HF_TOKEN")
+        except Exception:  # noqa: BLE001 - no secrets file configured
+            token = None
+        if token:
+            try:
+                proba = _bertimbau_score(text, token)
+                return proba, "BERTimbau (via Inference API)", ""
+            except Exception:  # noqa: BLE001 - fallback is the point
+                pass
+            fallback_note = (
+                "BERTimbau API unavailable (no answer from the "
+                "Inference API), scored with the unified model "
+                "instead."
+            )
+        else:
+            fallback_note = (
+                "BERTimbau API needs an HF_TOKEN in the app Secrets, "
+                "scored with the unified model instead."
+            )
+        proba = float(load("model_unified.joblib").predict_proba([text])[0][1])
+        return proba, "unified (fallback)", fallback_note
     if mode.startswith("Unified"):
         proba = float(load("model_unified.joblib").predict_proba([text])[0][1])
         return proba, "unified", ""
@@ -81,11 +140,9 @@ def classify(text, mode):
 st.set_page_config(page_title="Crivo Factual — Veracity classifier", layout="centered")
 st.title("Crivo Factual — Veracity classifier")
 st.write(
-    "Three models: v1 trained on the Fake.Br Corpus (7,200 articles) "
-    "for long texts, v2 trained on FakenewsBR (36,594 items: news, "
-    "tweets, WhatsApp) for short texts, and the unified model "
-    "(Fake.Br + FakenewsBR) for any length. The score is a triage "
-    "signal, not a verdict."
+    "BERTimbau (best model, served by the Hugging Face Inference "
+    "API), the unified linear model, and the v1/v2 router. The "
+    "score is a triage signal, not a verdict."
 )
 
 if "text" not in st.session_state:
@@ -107,7 +164,7 @@ text = st.text_area(
 )
 mode = st.radio(
     "Model",
-    ["Unified (one model)", "Router (v1/v2 by length)"],
+    ["BERTimbau (via Inference API)", "Unified (one model)", "Router (v1/v2 by length)"],
     index=0,
 )
 
@@ -121,6 +178,13 @@ if st.button("Classify", type="primary"):
         st.write(f"**Model:** {model}. **Reading:** {reading(proba)}.")
         if warning:
             st.warning(warning)
+        if len(text.strip()) < SHORT_TEXT_CHARS:
+            st.warning(
+                "Short text: on the current-politics test set "
+                "(Nov 2026, 12 short items) every model over-flags "
+                "short true claims as false (false-positive rate "
+                "20–30%). Read short-text scores as a weak signal."
+            )
         st.info(
             "This is a triage signal, not a verdict: in Crivo Factual, "
             "the conclusion comes from primary sources (Chamber of "
@@ -131,7 +195,8 @@ with st.expander("How it works"):
     st.write(
         "The suspicion score orders the human verification queue and "
         "is recorded in the audit trail; it never decides the "
-        "published verdict. Measured results (fixed tests, seed 42):"
+        "published verdict. Measured results on the fixed test sets "
+        "(seed 42):"
     )
     st.table(
         {
@@ -140,9 +205,13 @@ with st.expander("How it works"):
         }
     )
     st.write(
-        "BERTimbau is the best model on both test sets, but the mixed "
-        "regime has a measured ceiling of ~0.82: the bottleneck is the "
-        "data, not the model. Models and weights: "
+        "Current-politics test set (Nov 2026, n=20: 10 true, 10 "
+        "false — real g1 articles and claims debunked by Lupa / "
+        "Aos Fatos): accuracy 0.85 for v2, unified, BERTimbau and "
+        "the router (v1: 0.75). Articles: 1.00 for every model "
+        "(n=8). Short claims: 0.75 (n=12) — every model over-flags "
+        "short true claims. The bottleneck is the data, not the "
+        "model. Models and weights: "
         "[brenindexdev/crivo-factual-fakebr](https://huggingface.co/brenindexdev/crivo-factual-fakebr). "
-        "Source code: [Crivo-Factual/crivo-factual-project](https://github.com/Crivo-Factual/crivo-factual-project)."
+        "Source code and test set: [Crivo-Factual/crivo-factual-project](https://github.com/Crivo-Factual/crivo-factual-project)."
     )
