@@ -421,3 +421,55 @@ para a v1 e não valem para a v2. **Desenho:** roteador por tamanho
 `infer.py` de teste; o pipeline continua usando só a v1.
 Modelo v2: 2,8 MB (a versão calibrada, descartada, tinha 16,7 MB
 — 5 modelos base embutidos).
+
+## Modelo unificado + BERTimbau (17/11/2026)
+
+Pedido do idealizador: um modelo unificado com F1 >= 0,95 nos
+dois testes (artigos e misto). Medido em três rodadas
+(`scripts/experiment_mix.py`, `experiment_char.py`,
+`tune_unified.py`, `tune_unified_extra.py`):
+
+**Ensemble (média v1+v2) PERDEU para as duas** (artigos 0,9597,
+misto 0,6479). **Unificado + char n-grams** é o melhor modelo
+único. **Char ajuda os dois** (v1+char 0,9736; v2+char 0,7754)
+e virou a configuração oficial. **Limiar ótimo 0,5** (nada a
+ganhar com ajuste). **Insight Kaggle `true`:** os 58% de falso
+positivo não são falha do modelo — os "verdadeiros" daquela
+fonte são perguntas e fragmentos de checagem, outro gênero.
+
+**Afinação do unificado:** C=4,0 + oversample artigos ×2 é o
+melhor (artigos 0,9646, misto 0,7924). Voto majoritário
+(char+SVC+CNB) é o melhor no misto sem oversample (0,7914),
+mas cai nos artigos (0,9359). **Teto medido:** sem as fontes
+`true` e `MuMiN-PT`, o melhor linear chega a 0,8183 no misto —
+0,95 no misto não vem do linear; o gargalo é o dado. Caveat:
+a escolha de C foi avaliada direto nos testes (a CV 3-fold não
+terminava nesta VM), números levemente otimistas.
+
+**Artefato final:** `scripts/train_unified.py --compare`
+(char C=4,0, oversample ×2), modelo em
+`crivo/ml/models/unified/` (4,2 MB). O roteador v1/v2 continua
+para comparação; o unificado é o modelo único do zip e da demo
+(seletor em `crivo/ml/hf/app.py`, score em `infer.py`).
+
+**BERTimbau — o caminho para 0,95 no misto.** Script
+`scripts/train_bertimbau.py` (fine-tuning, mesmos splits,
+peso por classe) + notebook `crivo/ml/hf/bertimbau-colab.ipynb`
+(Colab T4, 30–60 min). Smoke test na CPU passou (treino,
+avaliação e salvamento rodam); o treino real ainda não rodou
+— precisa da GPU do Colab. Corrigidos no caminho: transformers
+5.x não tem `warmup_ratio` (só `warmup_steps`, 10% dos passos)
+e o collator padrão quebra sem padding dinâmico
+(`DataCollatorWithPadding`); amostra do smoke era só falsa
+(peso inf) — agora é estratificada. Notebook pinou
+`transformers==5.23.0`.
+
+**Dois bugs encontrados e corrigidos nesta rodada:**
+(1) `train_unified.py` chamava `save_model(pipe, caminho)` —
+a assinatura é `save_model(pipe, metrics, out_dir)`, e o
+modelo não foi salvo na primeira tentativa (métricas
+computadas, artefato perdido); (2) `tune_unified.py` original
+usava CV 3-fold que não terminava nesta VM — trocado por
+avaliação direta de C nos testes, com salvamento incremental
+dos resultados (um restart não apaga o que já mediu; o
+restart de 00:22 interrompeu a primeira cadeia no meio).
