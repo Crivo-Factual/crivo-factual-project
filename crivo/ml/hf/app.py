@@ -1,11 +1,13 @@
 """Demo do classificador de veracidade do Crivo Factual (Space).
 
 Cole um texto em português e veja a probabilidade estimada de
-ele ser falso. Dois modelos, um roteador por tamanho:
+ele ser falso. Três modelos:
 - v1 (Fake.Br, artigos completos): só opina a partir de 500
   caracteres — é o especialista em artigos.
 - v2 (FakenewsBR, notícias + tweets + WhatsApp): opina sobre
   texto curto, mas com viés de falso positivo — sinal fraco.
+- unificado (Fake.Br + FakenewsBR): um só modelo para qualquer
+  tamanho de texto — artigos F1 0,9646, misto F1 0,7924.
 
 É um sinal de triagem — não um veredito: no Crivo Factual, o
 veredito é decidido por regras sobre fontes primárias, nunca por
@@ -32,6 +34,7 @@ def load(name):
 
 V1 = load("model_v1.joblib")
 V2 = load("model_v2.joblib")
+UNI = load("model_unified.joblib")
 
 
 def _leitura(proba):
@@ -42,11 +45,15 @@ def _leitura(proba):
     )
 
 
-def classify(text):
+def classify(text, modelo_escolhido):
     text = (text or "").strip()
     if not text:
         return None, "Cole um texto para classificar."
-    if len(text) >= MIN_CHARS_V1:
+    if modelo_escolhido == "Unificado (um só modelo)":
+        proba = float(UNI.predict_proba([text])[0][1])
+        modelo = "unificado"
+        aviso = ""
+    elif len(text) >= MIN_CHARS_V1:
         proba = float(V1.predict_proba([text])[0][1])
         modelo = "v1 (artigo completo)"
         aviso = ""
@@ -67,21 +74,31 @@ def classify(text):
 
 demo = gr.Interface(
     fn=classify,
-    inputs=gr.Textbox(
-        label="Texto em português (artigo ou texto curto)",
-        placeholder="Cole aqui o texto...",
-        lines=10,
-    ),
+    inputs=[
+        gr.Textbox(
+            label="Texto em português (artigo ou texto curto)",
+            placeholder="Cole aqui o texto...",
+            lines=10,
+        ),
+        gr.Radio(
+            choices=["Roteador (v1/v2 por tamanho)",
+                     "Unificado (um só modelo)"],
+            value="Unificado (um só modelo)",
+            label="Modelo",
+        ),
+    ],
     outputs=[
         gr.Label(label="Probabilidade"),
         gr.Markdown(label="Leitura"),
     ],
     title="Crivo Factual — Classificador de veracidade",
     description=(
-        "Dois modelos: v1 treinada no Fake.Br Corpus (7.200 "
+        "Três modelos: v1 treinada no Fake.Br Corpus (7.200 "
         "artigos) para textos longos, v2 treinada no FakenewsBR "
         "(36.594 itens: notícias, tweets, WhatsApp) para textos "
-        "curtos. O score é um sinal de triagem, não um veredito."
+        "curtos, e o unificado (Fake.Br + FakenewsBR) que serve "
+        "para qualquer tamanho. O score é um sinal de triagem, "
+        "não um veredito."
     ),
     examples=[
         ["A Câmara dos Deputados aprovou nesta terça-feira o projeto "
