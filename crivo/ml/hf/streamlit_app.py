@@ -26,6 +26,7 @@ articles 100% correct for every model (n=8); short claims
 false. Short-text scores are a weak signal.
 """
 
+import json
 import time
 
 import joblib
@@ -81,7 +82,6 @@ def _bertimbau_score(text, token):
     StopIteration, so the app calls the router directly and
     keeps the HTTP status.) Raises _InferenceApiError on any
     failure; retries twice while the model is loading (503)."""
-    import json
     import urllib.error
     import urllib.request
 
@@ -111,25 +111,43 @@ def _bertimbau_score(text, token):
     return float(top["score"]) if top["label"] in ("LABEL_1", "fake", "FAKE") else 1.0 - float(top["score"])
 
 
+def _short_detail(detail):
+    """The router's error message, if any (its JSON body is
+    {"error": "..."}). Never includes the token."""
+    if not detail:
+        return ""
+    try:
+        parsed = json.loads(detail)
+        if isinstance(parsed, dict) and parsed.get("error"):
+            return str(parsed["error"])[:150]
+    except Exception:  # noqa: BLE001 - fall back to raw text
+        pass
+    return detail[:150]
+
+
 def _api_failure_reason(exc):
     """Short, safe description of an Inference API failure for the
-    on-screen fallback note. Never includes the token."""
+    on-screen fallback note, including the API's own error
+    message when it has one. Never includes the token."""
     status = getattr(exc, "status", None)
     msg = str(exc)
+    detail = _short_detail(getattr(exc, "detail", "") or "")
     if status is not None:
         if status == 401 or "Invalid username" in msg:
-            return (
+            base = (
                 "HTTP 401 — the token was rejected; check that "
                 "HF_TOKEN has the 'Make calls to Inference Providers' "
                 "permission"
             )
-        if status == 404:
-            return "HTTP 404 — the model was not found on the Inference API"
-        if status == 429:
-            return "HTTP 429 — rate limit, try again in a minute"
-        if status == 503:
-            return "the model is still loading on the server"
-        return f"HTTP {status} — the Inference API refused the request"
+        elif status == 404:
+            base = "HTTP 404 — the model was not found on the Inference API"
+        elif status == 429:
+            base = "HTTP 429 — rate limit, try again in a minute"
+        elif status == 503:
+            base = "the model is still loading on the server"
+        else:
+            base = f"HTTP {status} — the Inference API refused the request"
+        return f"{base} ({detail})" if detail else base
     if "401" in msg or "Invalid username" in msg:
         return (
             "HTTP 401 — the token was rejected; check that "
