@@ -470,6 +470,21 @@ estratificada. Notebook pinou `transformers==5.23.0`. Pesos do
 modelo na saída da sessão do Kaggle (`./bertimbau-v1`) — ainda
 não subidos para o Hub.
 
+**Limpeza do treino — testada e REJEITADA 17/11/2026.**
+Hipótese: remover do treino os itens não-notícia da fonte
+`true` (perguntas/fragmentos) e os textos <100 chars
+melhoraria o misto. Medido no unificado (mesma config, testes
+fixos): artigos F1 0,9646 → 0,9708 (+0,0062), **misto F1
+0,7924 → 0,7770 (−0,0154)**. O falso positivo na fonte `true`
+saltou de 66,5% para 94,0%. Mecanismo: os fragmentos-pergunta
+eram os únicos exemplos curtos verdadeiros do treino — o
+contrapeso ao atalho "texto curto → falso" que os itens curtos
+da fonte `fakes` ensinam; removê-los fortaleceu o atalho. A
+direção correta é a oposta: manter/reforçar os verdadeiros
+curtos no treino ou trazer notícias curtas verdadeiras
+genuínas de outra fonte. Nada foi subido ao GitHub; os
+artefatos da validação ficaram em /tmp (voláteis).
+
 **Dois bugs encontrados e corrigidos nesta rodada:**
 (1) `train_unified.py` chamava `save_model(pipe, caminho)` —
 a assinatura é `save_model(pipe, metrics, out_dir)`, e o
