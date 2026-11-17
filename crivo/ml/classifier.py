@@ -98,6 +98,103 @@ def split(items: list[NewsItem], test_size: float = 0.2,
     )
 
 
+def split_items_stratified(items: list[NewsItem],
+                           test_size: float = 0.2,
+                           seed: int = 42) -> tuple[list[NewsItem],
+                                                    list[NewsItem]]:
+    """Split aleatório ESTRATIFICADO por rótulo, devolvendo os
+    próprios itens (não só os textos) — para corpora sem pares
+    alinhados, como o FakenewsBR, onde cada linha é independente.
+    Preserva a proporção falsa/verdadeira nos dois lados."""
+    _require_sklearn()
+    from sklearn.model_selection import train_test_split
+    labels = [it.label for it in items]
+    train_items, test_items = train_test_split(
+        items, test_size=test_size, random_state=seed, stratify=labels,
+    )
+    return train_items, test_items
+
+
+def split_stratified(items: list[NewsItem], test_size: float = 0.2,
+                     seed: int = 42):
+    """Mesma saída de `split`, mas com split estratificado por
+    rótulo (sem agrupamento por par)."""
+    train_items, test_items = split_items_stratified(
+        items, test_size, seed)
+    return (
+        [it.text for it in train_items],
+        [it.label for it in train_items],
+        [it.text for it in test_items],
+        [it.label for it in test_items],
+    )
+
+
+def calibrate_pipeline(pipe: Pipeline, X_train, y_train,
+                       method: str = "isotonic", cv: int = 5):
+    """Envolve um pipeline já construído num calibrador: o modelo
+    base é treinado em `cv` dobras e a calibração aprende, em dados
+    que o modelo não viu, como mapear o score cru em probabilidade
+    real. Devolve um CalibratedClassifierCV (comporta-se como um
+    pipeline: predict / predict_proba). O pipeline original não é
+    alterado — o calibrador clona o estimador."""
+    _require_sklearn()
+    from sklearn.calibration import CalibratedClassifierCV
+    calibrated = CalibratedClassifierCV(pipe, method=method, cv=cv)
+    calibrated.fit(X_train, y_train)
+    return calibrated
+
+
+def calibration_report(pipe, X_test, y_test) -> dict:
+    """Quão honestas são as probabilidades do modelo. Brier
+    (0 = perfeito) + tabela por faixa: em cada faixa, quantos
+    itens caíram, qual fração era realmente falsa e qual a
+    probabilidade média do modelo. Um modelo calibrado tem
+    fração ≈ média em TODAS as faixas, não só nos extremos."""
+    _require_sklearn()
+    from sklearn.metrics import brier_score_loss
+    proba = pipe.predict_proba(X_test)[:, 1]
+    bands = []
+    for lo, hi in [(0, 0.1), (0.1, 0.3), (0.3, 0.5),
+                   (0.5, 0.7), (0.7, 0.9), (0.9, 1.01)]:
+        mask = [(lo <= p < hi) for p in proba]
+        n = int(sum(mask))  # int() de propósito: sum() sobre
+        # numpy.bool_ devolve np.int64, que o json não serializa.
+        if not n:
+            continue
+        y_band = [y for y, m in zip(y_test, mask) if m]
+        p_band = [p for p, m in zip(proba, mask) if m]
+        bands.append({
+            "lo": lo, "hi": round(hi, 2), "n": n,
+            "frac_falsa": round(sum(y_band) / n, 3),
+            "proba_media": round(sum(p_band) / n, 3),
+        })
+    return {
+        "brier": round(float(brier_score_loss(y_test, proba)), 4),
+        "bands": bands,
+    }
+
+
+def threshold_table(pipe, X_test, y_test,
+                    thresholds=(0.5, 0.6, 0.8)) -> list[dict]:
+    """Precisão e recall da classe falsa em cada limiar — é daqui
+    que saem os limiares do bônus de triagem (+5 / +10), medidos
+    em vez de chutados."""
+    _require_sklearn()
+    from sklearn.metrics import precision_score, recall_score
+    proba = pipe.predict_proba(X_test)[:, 1]
+    table = []
+    for t in thresholds:
+        pred = [1 if p >= t else 0 for p in proba]
+        table.append({
+            "threshold": t,
+            "precision_falsa": round(float(precision_score(
+                y_test, pred, zero_division=0)), 3),
+            "recall_falsa": round(float(recall_score(
+                y_test, pred, zero_division=0)), 3),
+        })
+    return table
+
+
 def evaluate(pipe: Pipeline, X_test, y_test) -> dict:
     _require_sklearn()
     pred = pipe.predict(X_test)
@@ -175,7 +272,12 @@ def save_model(pipe: Pipeline, metrics: dict, out_dir: str) -> None:
     joblib.dump(pipe, os.path.join(out_dir, "model.joblib"))
     with open(os.path.join(out_dir, "metrics.json"), "w",
               encoding="utf-8") as fh:
-        json.dump(metrics, fh, ensure_ascii=False, indent=2)
+        # default: escalares numpy (np.int64 etc.) não são
+        # serializáveis pelo json — .item() devolve o escalar
+        # Python equivalente.
+        json.dump(metrics, fh, ensure_ascii=False, indent=2,
+                  default=lambda o: o.item()
+                  if hasattr(o, "item") else str(o))
 
 
 def load_model(path: str) -> Pipeline:
