@@ -33,6 +33,11 @@ import streamlit as st
 from huggingface_hub import hf_hub_download
 
 HF_MODEL_REPO = "brenindexdev/crivo-factual-fakebr"
+# BERTimbau has its own repo: the Inference API can only serve a
+# model whose transformers files are at the repo root, and the
+# main repo holds the BERTimbau files under bertimbau/ (plus the
+# sklearn joblibs, which is why the router answered HTTP 400).
+HF_BERTIMBAU_REPO = "brenindexdev/crivo-factual-bertimbau"
 
 # Minimum text length for v1 to score (see crivo/ml/classifier.py).
 MIN_CHARS_V1 = 500
@@ -81,7 +86,7 @@ def _bertimbau_score(text, token):
     import urllib.request
 
     body = json.dumps({"inputs": text}).encode()
-    url = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL_REPO}"
+    url = f"https://router.huggingface.co/hf-inference/models/{HF_BERTIMBAU_REPO}"
     for attempt in range(3):
         req = urllib.request.Request(url, data=body, method="POST")
         req.add_header("Authorization", f"Bearer {token}")
@@ -267,6 +272,8 @@ with st.expander("How it works"):
         "(n=8). Short claims: 0.75 (n=12) — every model over-flags "
         "short true claims. The bottleneck is the data, not the "
         "model. Models and weights: "
-        "[brenindexdev/crivo-factual-fakebr](https://huggingface.co/brenindexdev/crivo-factual-fakebr). "
+        "[brenindexdev/crivo-factual-fakebr](https://huggingface.co/brenindexdev/crivo-factual-fakebr) "
+        "(linear models) and [brenindexdev/crivo-factual-bertimbau](https://huggingface.co/brenindexdev/crivo-factual-bertimbau) "
+        "(BERTimbau). "
         "Source code and test set: [Crivo-Factual/crivo-factual-project](https://github.com/Crivo-Factual/crivo-factual-project)."
     )
