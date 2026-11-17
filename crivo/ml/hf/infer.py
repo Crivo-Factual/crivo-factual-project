@@ -1,12 +1,16 @@
 """Teste local dos classificadores de veracidade do Crivo Factual.
 
-Dois modelos, um roteador por tamanho do texto:
+Três modelos:
 - v1 (Fake.Br, artigos completos): o especialista. Só opina a
   partir de 500 caracteres — manchete sozinha não serve.
 - v2 (FakenewsBR, 36.594 itens: notícias, tweets, WhatsApp):
   o generalista. Opina sobre texto curto, mas com viés de
   falso positivo (verdadeiro curto pontua 0,58 em média) —
   é sinal fraco, nunca veredito.
+- unificado (Fake.Br + FakenewsBR, 35.035 itens): um só modelo
+  para qualquer tamanho de texto — artigos F1 0,9646, misto
+  F1 0,7924. É o melhor modelo único; o roteador v1/v2 só
+  ganha nos artigos (v1: 0,9736).
 
 Uso:
     pip install scikit-learn
@@ -14,8 +18,8 @@ Uso:
     python infer.py --arquivo noticia.txt
     python infer.py   (modo interativo)
 
-Os arquivos model_v1.joblib e model_v2.joblib precisam estar
-nesta mesma pasta.
+Os arquivos model_v1.joblib, model_v2.joblib e
+model_unified.joblib precisam estar nesta mesma pasta.
 """
 
 import argparse
@@ -56,9 +60,11 @@ def main():
 
     v1 = _load("model_v1.joblib")
     v2 = _load("model_v2.joblib")
-    if v1 is None and v2 is None:
+    uni = _load("model_unified.joblib")
+    if v1 is None and v2 is None and uni is None:
         print("Nenhum modelo encontrado nesta pasta "
-              "(model_v1.joblib / model_v2.joblib).")
+              "(model_v1.joblib / model_v2.joblib / "
+              "model_unified.joblib).")
         return 1
     if v1 is not None:
         print("v1 carregada: TF-IDF + regressão logística "
@@ -66,6 +72,9 @@ def main():
     if v2 is not None:
         print("v2 carregada: TF-IDF + regressão logística "
               "(FakenewsBR, 36.594 itens).")
+    if uni is not None:
+        print("unificado carregado: TF-IDF + char + regressão "
+              "logística (Fake.Br + FakenewsBR, 35.035 itens).")
 
     texts = []
     if args.arquivo:
@@ -88,6 +97,10 @@ def main():
         text = (text or "").strip()
         n = len(text)
         print(f"\nTexto: {n} caracteres.")
+        if uni is not None:
+            p = _score(uni, text)
+            print(f"unificado: suspeita {p:.2f} — {_leitura(p)} "
+                  f"(vale para qualquer tamanho).")
         if v1 is not None and n >= MIN_CHARS_V1:
             p = _score(v1, text)
             print(f"v1 (artigo): suspeita {p:.2f} — {_leitura(p)}.")
