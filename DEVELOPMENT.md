@@ -385,3 +385,39 @@ sempre. O corpus (146 MB) e o modelo treinado (`crivo/ml/models/`)
 não são versionados. Publicação no Hub: ver
 `crivo/ml/hf/README-publicar.md` — precisa da conta e do token do
 idealizador.
+
+## v2 — FakenewsBR + calibração (17/11/2026)
+
+Treino no corpus unificado FakenewsBR (Silva et al., 2026):
+51.205 linhas no arquivo, **36.594 canônicas** (26.534 falsas /
+10.060 verdadeiras; fora `*_raw` e textos <50 chars). Loader em
+`crivo/ml/fakenewsbr.py`, treino em `scripts/train_classifier_v2.py`.
+
+**Veredito: a v2 NÃO substitui a v1.** Em artigos a v1 continua
+melhor (F1 0,9708 contra 0,8841 sem calibração / 0,9311
+calibrada, no teste da v1 — comparação limpa, com os 1.440 itens
+do teste da v1 excluídos do treino da v2 por fingerprint). O
+valor da v2 é a amplitude (tweets, WhatsApp, COVID) e o texto
+curto: verdadeiro curto 0,456 / falso curto 0,722 em média (a v1
+pontuava 0,91–0,98 em verdadeiro curto), mas o guarda de 500
+chars continua valendo. No teste misto (n=7.319): F1-macro
+0,7676, acurácia 0,8086, ROC-AUC 0,8575, Brier 0,1444.
+
+**Calibração — resultado misto, não enviada.** Isotônica melhora
+o Brier (0,1444 → 0,1256) e o F1 nos artigos (0,8841 → 0,9311),
+mas desloca o ponto de operação para "falso": falsos positivos
+em verdadeiras saltam de 590 para 1.011 no teste misto e o
+F1-macro cai (0,7676 → 0,7444). Artefato enviado: sem calibração.
+**Bug encontrado e corrigido no caminho:** `calibration_report`
+devolvia np.int64 em "n" e `save_model` quebrava no json.dump no
+fim do treino — com o modelo salvo e as métricas perdidas; corrigido
+(int() na fonte + default no json.dump) com teste de regressão.
+
+**Falso positivo por fonte (v2 sem calibração):** LLM4BR 5%,
+Fake.br 9%, WhatsApp 22%, COVID 36%, MuMiN-PT 53%, Kaggle `true`
+58%. Os limiares do bônus de triagem (+5/+10) foram medidos
+para a v1 e não valem para a v2. **Desenho:** roteador por tamanho
+(500+ chars → v1; curto → v2, sinal fraco), implementado no
+`infer.py` de teste; o pipeline continua usando só a v1.
+Modelo v2: 2,8 MB (a versão calibrada, descartada, tinha 16,7 MB
+— 5 modelos base embutidos).
