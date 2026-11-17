@@ -83,14 +83,20 @@ def _keyword_hits(text, keywords=None):
     return sum(1 for kw in (keywords or KEYWORDS) if kw in text)
 
 
-def score(item, keywords=None):
+def score(item, keywords=None, suspicion=None):
     """Prioridade: notícia com referência (40) > notícia política
     (10 por palavra-chave NO TÍTULO) > listagem com ementa (15) >
     ref solta (5). Soma o bônus de recência (20 <24h, 10 <72h).
 
     Palavras-chave contam só no título: no resumo, uma menção de
     passagem ("o governo federal informou...") inflava notícia de
-    crime e local para o topo da fila."""
+    crime e local para o topo da fila.
+
+    `suspicion` é o score do classificador de ML (0–1, probabilidade
+    de o texto ser falso; ver crivo/ml). Bônus: +10 se >= 0,8, +5 se
+    >= 0,6. Ele NUNCA passa na frente de um item com referência
+    (40): só reordena dentro da mesma classe. None (sem modelo ou
+    texto curto demais) não muda nada."""
     title = item.get("title", "") or ""
     text = f"{title} {item.get('summary', '') or ''}"
     total = 0
@@ -100,12 +106,22 @@ def score(item, keywords=None):
         total += 40
     total += 10 * _keyword_hits(title, keywords)
     total += _recency_bonus(item.get("published", ""))
+    if suspicion is not None:
+        if suspicion >= 0.8:
+            total += 10
+        elif suspicion >= 0.6:
+            total += 5
     return total
 
 
-def triage(items, keywords=None):
-    """Devolve os itens ordenados por score, cada um com _score."""
-    scored = [dict(item, _score=score(item, keywords)) for item in items]
+def triage(items, keywords=None, suspicion_for=None):
+    """Devolve os itens ordenados por score, cada um com _score.
+    `suspicion_for` é um callable item -> float | None (o score do
+    classificador de ML); sem ele, o comportamento é o de sempre."""
+    scored = []
+    for item in items:
+        suspicion = suspicion_for(item) if suspicion_for else None
+        scored.append(dict(item, _score=score(item, keywords, suspicion)))
     scored.sort(key=lambda i: i["_score"], reverse=True)
     return scored
 
