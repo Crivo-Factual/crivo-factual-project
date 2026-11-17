@@ -226,3 +226,7 @@ site/
 
 # Gerados pelo M4 (outbox de distribuição e boletins)
 outbox/
+
+# Gerados pelo ML (venv, modelo treinado e métricas locais)
+.venv-ml/
+crivo/ml/models/
