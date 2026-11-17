@@ -243,14 +243,14 @@ Colab (T4 GPU, 30–60 min, 3 epochs, batch 32, max_len 256).
 **Result (real training, 17/11/2026, Kaggle T4 GPU — free
 Colab had no GPU available; the Kaggle notebook is
 `crivo/ml/hf/bertimbau-kaggle.ipynb`): articles F1-macro
-0.9868 (accuracy 0.9868, n=1440) — the 0.95 goal BEATEN, above
+0.9854 (accuracy 0.9854, n=1440) — the 0.95 goal BEATEN, above
 v1 (0.9736) and the unified model (0.9646); mixed F1-macro
-0.8184 (accuracy 0.8507, n=7319) — the best on mixed so far
-(unified 0.7924), but below the 0.95 goal. Mixed landed exactly
-on the measured linear ceiling without the worst sources
-(0.8183), but on the FULL set — the transformer solved the
+0.8243 (accuracy 0.8561, n=7319) — the best on mixed so far
+(unified 0.7924), but below the 0.95 goal. Mixed clears the
+measured linear ceiling without the worst sources (0.8183) by
+0.6 points, but on the FULL set — the transformer solved the
 `true` and `MuMiN-PT` source problem that capped the linear
-model, and still hit the same ceiling. Conclusion: the
+model, and still stopped just above that ceiling. Conclusion: the
 bottleneck on mixed is the data, not the model. The script was
 checked beforehand with a CPU smoke test (64 examples, 1 epoch
 — training, evaluation and saving all ran; the smoke F1 values
