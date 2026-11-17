@@ -272,6 +272,13 @@ short-true counterweight against the "short text → fake"
 shortcut. The right direction is the opposite: keep or
 reinforce short true items.
 
+**Reinforcing short true items does not work either
+(17/11/2026).** Duplicating ×2/×3 the short true items in
+training made mixed worse (F1 0.7924 → 0.7871 in the best
+case): the false-positive rate on the `true` source fell, but
+false recall fell more. Duplicating shifts the prior, it does
+not teach the pattern.
+
 ## Reproduce
 
 ```bash
