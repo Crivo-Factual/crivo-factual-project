@@ -509,6 +509,32 @@ true examples there are is closed. What remains: (1) genuine
 short true news from another source; (2) BERTimbau-large /
 more epochs / larger max_len; (3) accepting the ceiling.
 
+**Linear models fail on current political text (17/11/2026, live
+demo).** Three test texts were scored in the deployed Streamlit
+app and reproduced locally with identical numbers (local and Hub
+models agree exactly, so the deploy is not the problem): a true
+2026 article about EC 141/2026 scored v1 0.95 / unified 0.59;
+a short true sentence ("O Congresso promulgou a emenda
+constitucional que acaba com a escala 6x1") scored unified 0.91
+/ v2 0.81; only the clickbait scored correctly (unified 0.99).
+Mechanism (measured): v1's intercept is +5.89 — it only says
+"true" when it recognizes enough true-indicating tokens, and on
+2026 vocabulary it does not find them; the top fake-driving
+tokens in the article are generic char fragments ("de", "co",
+"do"). Even on its own 2018 test set, v1 gives 0.69 to a true
+political article — politics is its weakest topic
+in-distribution. BERTimbau (published weights, run locally)
+scores the article correctly (P(fake) 0.012) and the clickbait
+(0.988), but fails the short true sentence exactly like the
+linear models (0.990) — the short-true regime is broken at the
+data level for every model. Consequence for the demo: the
+built-in example article itself scores v1 0.60 (the router hides
+it because the text is <500 chars and uses v2). The HF
+Inference API was tested as a way to serve BERTimbau without
+loading torch in the app: it answered 401 with the current
+token (probably missing the inference permission) — not
+verified working.
+
 **Two bugs found and fixed in this round:**
 (1) `train_unified.py` called `save_model(pipe, caminho)` —
 the signature is `save_model(pipe, metrics, out_dir)`, and the
