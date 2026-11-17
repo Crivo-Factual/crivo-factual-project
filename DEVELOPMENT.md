@@ -452,17 +452,23 @@ terminava nesta VM), números levemente otimistas.
 para comparação; o unificado é o modelo único do zip e da demo
 (seletor em `crivo/ml/hf/app.py`, score em `infer.py`).
 
-**BERTimbau — o caminho para 0,95 no misto.** Script
-`scripts/train_bertimbau.py` (fine-tuning, mesmos splits,
-peso por classe) + notebook `crivo/ml/hf/bertimbau-colab.ipynb`
-(Colab T4, 30–60 min). Smoke test na CPU passou (treino,
-avaliação e salvamento rodam); o treino real ainda não rodou
-— precisa da GPU do Colab. Corrigidos no caminho: transformers
-5.x não tem `warmup_ratio` (só `warmup_steps`, 10% dos passos)
-e o collator padrão quebra sem padding dinâmico
-(`DataCollatorWithPadding`); amostra do smoke era só falsa
-(peso inf) — agora é estratificada. Notebook pinou
-`transformers==5.23.0`.
+**BERTimbau — treino real rodado 17/11/2026 (GPU T4 do Kaggle;
+o Colab gratuito estava sem GPU — notebook do Kaggle em
+`crivo/ml/hf/bertimbau-kaggle.ipynb`).** Artigos F1 0,9868
+(acurácia 0,9868, n=1440) — meta de 0,95 batida, melhor que
+v1 (0,9736) e unificado (0,9646). Misto F1 0,8184 (acurácia
+0,8507, n=7319) — melhor modelo no misto até aqui (unificado
+0,7924), mas abaixo de 0,95. O misto ficou exatamente no teto
+medido do linear sem as piores fontes (0,8183), no conjunto
+completo — o gargalo é o dado, não o modelo. Script
+`scripts/train_bertimbau.py` (fine-tuning, mesmos splits, peso
+por classe). Corrigidos no caminho: transformers 5.x não tem
+`warmup_ratio` (só `warmup_steps`, 10% dos passos) e o collator
+padrão quebra sem padding dinâmico (`DataCollatorWithPadding`);
+amostra do smoke era só falsa (peso inf) — agora é
+estratificada. Notebook pinou `transformers==5.23.0`. Pesos do
+modelo na saída da sessão do Kaggle (`./bertimbau-v1`) — ainda
+não subidos para o Hub.
 
 **Dois bugs encontrados e corrigidos nesta rodada:**
 (1) `train_unified.py` chamava `save_model(pipe, caminho)` —
