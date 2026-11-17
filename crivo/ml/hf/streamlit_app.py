@@ -111,17 +111,31 @@ def _api_failure_reason(exc):
     on-screen fallback note. Never includes the token."""
     status = getattr(exc, "status", None)
     msg = str(exc)
-    if status == 401 or "401" in msg or "Invalid username" in msg:
+    if status is not None:
+        if status == 401 or "Invalid username" in msg:
+            return (
+                "HTTP 401 — the token was rejected; check that "
+                "HF_TOKEN has the 'Make calls to Inference Providers' "
+                "permission"
+            )
+        if status == 404:
+            return "HTTP 404 — the model was not found on the Inference API"
+        if status == 429:
+            return "HTTP 429 — rate limit, try again in a minute"
+        if status == 503:
+            return "the model is still loading on the server"
+        return f"HTTP {status} — the Inference API refused the request"
+    if "401" in msg or "Invalid username" in msg:
         return (
             "HTTP 401 — the token was rejected; check that "
             "HF_TOKEN has the 'Make calls to Inference Providers' "
             "permission"
         )
-    if status == 404 or "404" in msg:
+    if "404" in msg:
         return "HTTP 404 — the model was not found on the Inference API"
-    if status == 429 or "429" in msg:
+    if "429" in msg:
         return "HTTP 429 — rate limit, try again in a minute"
-    if status == 503 or "loading" in msg.lower():
+    if "loading" in msg.lower():
         return "the model is still loading on the server"
     if "timed out" in msg.lower() or "Timeout" in msg:
         return "the request timed out"
