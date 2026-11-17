@@ -50,9 +50,20 @@ def choose_central_index(unique, rules_texts):
 
 
 def process_item(conn, queue_item, llm_client=None, site_dir=None,
-                 searcher=None, evidence_enabled=True, article_fetcher=None):
-    """Processa um item da fila e devolve o resultado do veredito."""
+                 searcher=None, evidence_enabled=True, article_fetcher=None,
+                 ml_model=None):
+    """Processa um item da fila e devolve o resultado do veredito.
+
+    `ml_model` (opcional) é o classificador de veracidade treinado
+    (ver crivo/ml): ele calcula a suspeita sobre o texto COMPLETO do
+    artigo e o valor vai para o resultado e para a auditoria — NUNCA
+    para o veredito, que continua decidido só por regras sobre
+    fontes primárias."""
     text = article_mod.get_item_text(queue_item, fetcher=article_fetcher)
+    suspicion = None
+    if ml_model is not None:
+        from ..ml.classifier import suspicion_score
+        suspicion = suspicion_score(ml_model, text)
     rules = extract_candidates(text)
     llm_claims = (
         extract_with_llm(text, llm_client) if llm_client is not None else []
@@ -73,6 +84,7 @@ def process_item(conn, queue_item, llm_client=None, site_dir=None,
             "verdict": ("Sem índice", None, "sem_alegacoes"),
             "claims": 0,
             "published": False,
+            "suspicion": suspicion,
         }
     claim_objs = []
     evidences = []
@@ -134,7 +146,8 @@ def process_item(conn, queue_item, llm_client=None, site_dir=None,
     queue_mod.mark_done(conn, queue_item["id"])
     conn.commit()
     audit.log_event(conn, "verdict", pub_id,
-                    {"label": label, "index": index, "rule": rule, "version": version})
+                    {"label": label, "index": index, "rule": rule,
+                     "version": version, "suspicion": suspicion})
     published = False
     if site_dir:
         analysis = {
@@ -163,6 +176,7 @@ def process_item(conn, queue_item, llm_client=None, site_dir=None,
         "claims": len(claim_objs),
         "version": version,
         "published": published,
+        "suspicion": suspicion,
     }
 
 
@@ -181,7 +195,8 @@ def rebuild_index(conn, site_dir):
 
 
 def process_queue(conn, limit=10, llm_client=None, site_dir=None,
-                  evidence_enabled=True, searcher=None, article_fetcher=None):
+                  evidence_enabled=True, searcher=None, article_fetcher=None,
+                  ml_model=None):
     """Consome até `limit` itens da fila. Falha num item volta para a
     fila com backoff (não trava o resto)."""
     if evidence_enabled and searcher is None:
@@ -195,7 +210,8 @@ def process_queue(conn, limit=10, llm_client=None, site_dir=None,
             results.append(process_item(conn, item, llm_client, site_dir,
                                         searcher=searcher,
                                         evidence_enabled=evidence_enabled,
-                                        article_fetcher=article_fetcher))
+                                        article_fetcher=article_fetcher,
+                                        ml_model=ml_model))
         except Exception as exc:  # noqa: BLE001 - isola a falha do item
             conn.rollback()
             queue_mod.mark_failed(conn, item["id"])
