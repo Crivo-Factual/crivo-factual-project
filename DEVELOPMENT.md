@@ -535,6 +535,19 @@ loading torch in the app: it answered 401 with the current
 token (probably missing the inference permission) — not
 verified working.
 
+**HTTP 400 — the model was not at the repo root (17/11/2026).**
+With a new token (inference permission, in Streamlit Secrets)
+the live demo answered **HTTP 400**, not 401 — the token was
+accepted, the request was refused. Cause: the Hub repo
+`brenindexdev/crivo-factual-fakebr` holds the BERTimbau files
+under `bertimbau/` and is tagged `library_name: sklearn`
+(joblibs); the router can only serve a model whose
+transformers files are at the repo root. Fix: dedicated repo
+**`brenindexdev/crivo-factual-bertimbau`** with the same files
+at the root (created 17/11, pipeline text-classification);
+the demo calls that repo for the API. The old repo keeps the
+joblibs and the copy under `bertimbau/`.
+
 **Current-politics test set (17/11/2026).** Built to answer
 that failure honestly: 20 items (10 true / 10 false, Nov 2026
 Brazilian politics — 5 real g1 articles + 5 short true
