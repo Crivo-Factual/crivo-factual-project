@@ -351,3 +351,37 @@ python3 scripts/run_newsletter.py            # gera outbox/boletim-AAAA-MM-DD.md
 - O modelo de linguagem, quando existir, só extrai e localiza. O
   veredito é sempre determinístico (ver `crivo/pipeline/verdict.py`).
 - `site/` e `*.db` são artefatos gerados e ficam fora do git.
+
+## Classificador de veracidade — ML (16/11/2026)
+
+Adaptação do projeto como peça de portfólio de IA (decisão do
+idealizador, 16/11): um classificador TF-IDF + regressão logística
+treinado no Fake.Br Corpus (7.200 notícias, 3.600 falsas + 3.600
+verdadeiras), com o modelo publicado no Hugging Face e demo em
+Space. Detalhes em `crivo/ml/README.md`.
+
+**Regra central: o ML é sinal de triagem, nunca veredito.** A
+suspeita (0–1) prioriza a fila (`triage.score`, bônus +10/+5, que
+nunca passa na frente de um item com referência) e fica registrada
+no resultado e na auditoria (`run_verdicts.py --ml-model`). O
+veredito continua decidido só por regras sobre fontes primárias.
+
+**Medido (16/11, split por par, teste n=1440):** acurácia 0,9708,
+F1-macro 0,9708, F1 falsa 0,9710, ROC-AUC 0,9960, CV 5-fold
+0,9663 ± 0,0064. Matriz [[696, 24], [18, 702]].
+
+**Limite medido: texto curto não serve.** Manchetes (~200 chars)
+pontuam 0,91–0,98 mesmo verdadeiras — o modelo só viu artigos
+completos. `suspicion_score` devolve None abaixo de 500 chars, e
+a integração só pontua o texto completo do artigo. Em artigos
+completos: verdadeiros 0,04–0,18; falsos 0,69–0,93. Ao vivo
+(16/11, 5 itens): notícias reais do g1/Senado pontuaram
+0,09–0,13, vereditos inalterados.
+
+**Ambiente:** o repo é só biblioteca padrão; o ML vive num venv
+separado (`.venv-ml`, `scikit-learn pandas`). Os testes de treino
+pulam sem o sklearn; os de integração usam modelo falso e rodam
+sempre. O corpus (146 MB) e o modelo treinado (`crivo/ml/models/`)
+não são versionados. Publicação no Hub: ver
+`crivo/ml/hf/README-publicar.md` — precisa da conta e do token do
+idealizador.
