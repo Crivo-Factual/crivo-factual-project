@@ -352,145 +352,152 @@ python3 scripts/run_newsletter.py            # gera outbox/boletim-AAAA-MM-DD.md
   veredito é sempre determinístico (ver `crivo/pipeline/verdict.py`).
 - `site/` e `*.db` são artefatos gerados e ficam fora do git.
 
-## Classificador de veracidade — ML (16/11/2026)
+## Veracity classifier — ML (16/11/2026)
 
-Adaptação do projeto como peça de portfólio de IA (decisão do
-idealizador, 16/11): um classificador TF-IDF + regressão logística
-treinado no Fake.Br Corpus (7.200 notícias, 3.600 falsas + 3.600
-verdadeiras), com o modelo publicado no Hugging Face e demo em
-Space. Detalhes em `crivo/ml/README.md`.
+Portfolio adaptation of the project as an AI piece (creator's
+decision, 16/11): a TF-IDF + logistic regression classifier
+trained on the Fake.Br Corpus (7,200 news items, 3,600 fake +
+3,600 true), with the model published on Hugging Face and a
+demo in a Space. Details in `crivo/ml/README.md`.
 
-**Regra central: o ML é sinal de triagem, nunca veredito.** A
-suspeita (0–1) prioriza a fila (`triage.score`, bônus +10/+5, que
-nunca passa na frente de um item com referência) e fica registrada
-no resultado e na auditoria (`run_verdicts.py --ml-model`). O
-veredito continua decidido só por regras sobre fontes primárias.
+**Central rule: ML is a triage signal, never a verdict.** The
+suspicion score (0–1) prioritizes the queue (`triage.score`,
++10/+5 bonus, which never overtakes an item with a reference)
+and is recorded in the result and in the audit log
+(`run_verdicts.py --ml-model`). The verdict is still decided
+only by rules over primary sources.
 
-**Medido (16/11, split por par, teste n=1440):** acurácia 0,9708,
-F1-macro 0,9708, F1 falsa 0,9710, ROC-AUC 0,9960, CV 5-fold
-0,9663 ± 0,0064. Matriz [[696, 24], [18, 702]].
+**Measured (16/11, pair-wise split, test n=1440):** accuracy
+0.9708, F1-macro 0.9708, fake F1 0.9710, ROC-AUC 0.9960, 5-fold
+CV 0.9663 ± 0.0064. Matrix [[696, 24], [18, 702]].
 
-**Limite medido: texto curto não serve.** Manchetes (~200 chars)
-pontuam 0,91–0,98 mesmo verdadeiras — o modelo só viu artigos
-completos. `suspicion_score` devolve None abaixo de 500 chars, e
-a integração só pontua o texto completo do artigo. Em artigos
-completos: verdadeiros 0,04–0,18; falsos 0,69–0,93. Ao vivo
-(16/11, 5 itens): notícias reais do g1/Senado pontuaram
-0,09–0,13, vereditos inalterados.
+**Measured limit: short text does not work.** Headlines (~200
+chars) score 0.91–0.98 even when true — the model only saw
+full articles. `suspicion_score` returns None below 500 chars,
+and the integration only scores the full article text. On full
+articles: true items 0.04–0.18; fake ones 0.69–0.93. Live
+(16/11, 5 items): real news from g1/Senado scored 0.09–0.13,
+verdicts unchanged.
 
-**Ambiente:** o repo é só biblioteca padrão; o ML vive num venv
-separado (`.venv-ml`, `scikit-learn pandas`). Os testes de treino
-pulam sem o sklearn; os de integração usam modelo falso e rodam
-sempre. O corpus (146 MB) e o modelo treinado (`crivo/ml/models/`)
-não são versionados. Publicação no Hub: ver
-`crivo/ml/hf/README-publicar.md` — precisa da conta e do token do
-idealizador.
+**Environment:** the repo is standard library only; ML lives
+in a separate venv (`.venv-ml`, `scikit-learn pandas`). Training
+tests skip without sklearn; integration tests use a fake model
+and always run. The corpus (146 MB) and the trained model
+(`crivo/ml/models/`) are not versioned. Publishing on the Hub:
+see `crivo/ml/hf/README-publicar.md` — it needs the creator's
+account and token.
 
-## v2 — FakenewsBR + calibração (17/11/2026)
+## v2 — FakenewsBR + calibration (17/11/2026)
 
-Treino no corpus unificado FakenewsBR (Silva et al., 2026):
-51.205 linhas no arquivo, **36.594 canônicas** (26.534 falsas /
-10.060 verdadeiras; fora `*_raw` e textos <50 chars). Loader em
-`crivo/ml/fakenewsbr.py`, treino em `scripts/train_classifier_v2.py`.
+Training on the unified FakenewsBR corpus (Silva et al., 2026):
+51,205 lines in the file, **36,594 canonical items** (26,534
+fake / 10,060 true; excluding `*_raw` and texts <50 chars).
+Loader in `crivo/ml/fakenewsbr.py`, training in
+`scripts/train_classifier_v2.py`.
 
-**Veredito: a v2 NÃO substitui a v1.** Em artigos a v1 continua
-melhor (F1 0,9708 contra 0,8841 sem calibração / 0,9311
-calibrada, no teste da v1 — comparação limpa, com os 1.440 itens
-do teste da v1 excluídos do treino da v2 por fingerprint). O
-valor da v2 é a amplitude (tweets, WhatsApp, COVID) e o texto
-curto: verdadeiro curto 0,456 / falso curto 0,722 em média (a v1
-pontuava 0,91–0,98 em verdadeiro curto), mas o guarda de 500
-chars continua valendo. No teste misto (n=7.319): F1-macro
-0,7676, acurácia 0,8086, ROC-AUC 0,8575, Brier 0,1444.
+**Verdict: v2 does NOT replace v1.** On articles v1 is still
+better (F1 0.9708 against 0.8841 without calibration / 0.9311
+calibrated, on the v1 test — clean comparison, with the 1,440
+items of the v1 test set excluded from v2 training by
+fingerprint). The value of v2 is breadth (tweets, WhatsApp,
+COVID) and short text: short true 0.456 / short fake 0.722 on
+average (v1 scored 0.91–0.98 on short true text), but the
+500-char guard still applies. On the mixed test (n=7,319):
+F1-macro 0.7676, accuracy 0.8086, ROC-AUC 0.8575, Brier 0.1444.
 
-**Calibração — resultado misto, não enviada.** Isotônica melhora
-o Brier (0,1444 → 0,1256) e o F1 nos artigos (0,8841 → 0,9311),
-mas desloca o ponto de operação para "falso": falsos positivos
-em verdadeiras saltam de 590 para 1.011 no teste misto e o
-F1-macro cai (0,7676 → 0,7444). Artefato enviado: sem calibração.
-**Bug encontrado e corrigido no caminho:** `calibration_report`
-devolvia np.int64 em "n" e `save_model` quebrava no json.dump no
-fim do treino — com o modelo salvo e as métricas perdidas; corrigido
-(int() na fonte + default no json.dump) com teste de regressão.
+**Calibration — mixed result, not shipped.** Isotonic improves
+Brier (0.1444 → 0.1256) and F1 on articles (0.8841 → 0.9311),
+but shifts the operating point toward "fake": false positives
+on true items jump from 590 to 1,011 on the mixed test and
+F1-macro drops (0.7676 → 0.7444). Shipped artifact: without
+calibration. **Bug found and fixed along the way:**
+`calibration_report` returned np.int64 in "n" and `save_model`
+broke on json.dump at the end of training — with the model
+saved and the metrics lost; fixed (int() at the source +
+default in json.dump) with a regression test.
 
-**Falso positivo por fonte (v2 sem calibração):** LLM4BR 5%,
-Fake.br 9%, WhatsApp 22%, COVID 36%, MuMiN-PT 53%, Kaggle `true`
-58%. Os limiares do bônus de triagem (+5/+10) foram medidos
-para a v1 e não valem para a v2. **Desenho:** roteador por tamanho
-(500+ chars → v1; curto → v2, sinal fraco), implementado no
-`infer.py` de teste; o pipeline continua usando só a v1.
-Modelo v2: 2,8 MB (a versão calibrada, descartada, tinha 16,7 MB
-— 5 modelos base embutidos).
+**False positives by source (v2 without calibration):**
+LLM4BR 5%, Fake.br 9%, WhatsApp 22%, COVID 36%, MuMiN-PT 53%,
+Kaggle `true` 58%. The triage bonus thresholds (+5/+10) were
+measured for v1 and do not apply to v2. **Design:** router by
+length (500+ chars → v1; short → v2, weak signal), implemented
+in the test `infer.py`; the pipeline still uses only v1. v2
+model: 2.8 MB (the calibrated version, discarded, was 16.7 MB
+— 5 base models embedded).
 
-## Modelo unificado + BERTimbau (17/11/2026)
+## Unified model + BERTimbau (17/11/2026)
 
-Pedido do idealizador: um modelo unificado com F1 >= 0,95 nos
-dois testes (artigos e misto). Medido em três rodadas
+Creator's request: a unified model with F1 >= 0.95 on both
+tests (articles and mixed). Measured in three rounds
 (`scripts/experiment_mix.py`, `experiment_char.py`,
 `tune_unified.py`, `tune_unified_extra.py`):
 
-**Ensemble (média v1+v2) PERDEU para as duas** (artigos 0,9597,
-misto 0,6479). **Unificado + char n-grams** é o melhor modelo
-único. **Char ajuda os dois** (v1+char 0,9736; v2+char 0,7754)
-e virou a configuração oficial. **Limiar ótimo 0,5** (nada a
-ganhar com ajuste). **Insight Kaggle `true`:** os 58% de falso
-positivo não são falha do modelo — os "verdadeiros" daquela
-fonte são perguntas e fragmentos de checagem, outro gênero.
+**Ensemble (average of v1+v2) LOST to both** (articles 0.9597,
+mixed 0.6479). **Unified + char n-grams** is the best single
+model. **Char helps both** (v1+char 0.9736; v2+char 0.7754)
+and became the official configuration. **Optimal threshold 0.5**
+(nothing to gain from tuning). **Kaggle `true` insight:** the
+58% false-positive rate is not a model failure — the "true"
+items from that source are fact-check questions and fragments,
+another genre.
 
-**Afinação do unificado:** C=4,0 + oversample artigos ×2 é o
-melhor (artigos 0,9646, misto 0,7924). Voto majoritário
-(char+SVC+CNB) é o melhor no misto sem oversample (0,7914),
-mas cai nos artigos (0,9359). **Teto medido:** sem as fontes
-`true` e `MuMiN-PT`, o melhor linear chega a 0,8183 no misto —
-0,95 no misto não vem do linear; o gargalo é o dado. Caveat:
-a escolha de C foi avaliada direto nos testes (a CV 3-fold não
-terminava nesta VM), números levemente otimistas.
+**Unified tuning:** C=4.0 + oversample articles ×2 is the best
+(articles 0.9646, mixed 0.7924). Majority vote (char+SVC+CNB)
+is the best on mixed without oversampling (0.7914), but drops
+on articles (0.9359). **Measured ceiling:** without the `true`
+and `MuMiN-PT` sources, the best linear model reaches 0.8183
+on mixed — 0.95 on mixed does not come from a linear model;
+the bottleneck is the data. Caveat: C was chosen by evaluating
+directly on the tests (3-fold CV would not finish on this VM),
+numbers slightly optimistic.
 
-**Artefato final:** `scripts/train_unified.py --compare`
-(char C=4,0, oversample ×2), modelo em
-`crivo/ml/models/unified/` (4,2 MB). O roteador v1/v2 continua
-para comparação; o unificado é o modelo único do zip e da demo
-(seletor em `crivo/ml/hf/app.py`, score em `infer.py`).
+**Final artifact:** `scripts/train_unified.py --compare`
+(char C=4.0, oversample ×2), model in
+`crivo/ml/models/unified/` (4.2 MB). The v1/v2 router stays for
+comparison; the unified model is the single model of the zip
+and the demo (selector in `crivo/ml/hf/app.py`, score in
+`infer.py`).
 
-**BERTimbau — treino real rodado 17/11/2026 (GPU T4 do Kaggle;
-o Colab gratuito estava sem GPU — notebook do Kaggle em
-`crivo/ml/hf/bertimbau-kaggle.ipynb`).** Artigos F1 0,9868
-(acurácia 0,9868, n=1440) — meta de 0,95 batida, melhor que
-v1 (0,9736) e unificado (0,9646). Misto F1 0,8184 (acurácia
-0,8507, n=7319) — melhor modelo no misto até aqui (unificado
-0,7924), mas abaixo de 0,95. O misto ficou exatamente no teto
-medido do linear sem as piores fontes (0,8183), no conjunto
-completo — o gargalo é o dado, não o modelo. Script
-`scripts/train_bertimbau.py` (fine-tuning, mesmos splits, peso
-por classe). Corrigidos no caminho: transformers 5.x não tem
-`warmup_ratio` (só `warmup_steps`, 10% dos passos) e o collator
-padrão quebra sem padding dinâmico (`DataCollatorWithPadding`);
-amostra do smoke era só falsa (peso inf) — agora é
-estratificada. Notebook pinou `transformers==5.23.0`. Pesos do
-modelo na saída da sessão do Kaggle (`./bertimbau-v1`) — ainda
-não subidos para o Hub.
+**BERTimbau — real training run 17/11/2026 (Kaggle T4 GPU;
+free Colab had no GPU — Kaggle notebook in
+`crivo/ml/hf/bertimbau-kaggle.ipynb`).** Articles F1 0.9868
+(accuracy 0.9868, n=1440) — the 0.95 goal beaten, better than
+v1 (0.9736) and the unified model (0.9646). Mixed F1 0.8184
+(accuracy 0.8507, n=7319) — the best model on mixed so far
+(unified 0.7924), but below 0.95. Mixed landed exactly on the
+measured linear ceiling without the worst sources (0.8183), on
+the full set — the bottleneck is the data, not the model.
+Script `scripts/train_bertimbau.py` (fine-tuning, same splits,
+class weights). Fixed along the way: transformers 5.x has no
+`warmup_ratio` (only `warmup_steps`, 10% of steps) and the
+default collator breaks without dynamic padding
+(`DataCollatorWithPadding`); the smoke sample was all fake
+(infinite weight) — now stratified. Notebook pins
+`transformers==5.23.0`. Model weights in the Kaggle session
+output (`./bertimbau-v1`) — not yet uploaded to the Hub.
 
-**Limpeza do treino — testada e REJEITADA 17/11/2026.**
-Hipótese: remover do treino os itens não-notícia da fonte
-`true` (perguntas/fragmentos) e os textos <100 chars
-melhoraria o misto. Medido no unificado (mesma config, testes
-fixos): artigos F1 0,9646 → 0,9708 (+0,0062), **misto F1
-0,7924 → 0,7770 (−0,0154)**. O falso positivo na fonte `true`
-saltou de 66,5% para 94,0%. Mecanismo: os fragmentos-pergunta
-eram os únicos exemplos curtos verdadeiros do treino — o
-contrapeso ao atalho "texto curto → falso" que os itens curtos
-da fonte `fakes` ensinam; removê-los fortaleceu o atalho. A
-direção correta é a oposta: manter/reforçar os verdadeiros
-curtos no treino ou trazer notícias curtas verdadeiras
-genuínas de outra fonte. Nada foi subido ao GitHub; os
-artefatos da validação ficaram em /tmp (voláteis).
+**Training-data cleaning — tested and REJECTED 17/11/2026.**
+Hypothesis: removing the non-news items of the `true` source
+(questions/fragments) and texts <100 chars from training would
+improve mixed. Measured on the unified model (same config,
+fixed tests): articles F1 0.9646 → 0.9708 (+0.0062), **mixed
+F1 0.7924 → 0.7770 (−0.0154)**. The false-positive rate on the
+`true` source jumped from 66.5% to 94.0%. Mechanism: the
+question fragments were the only short true examples in
+training — the counterweight to the "short text → fake"
+shortcut that the short items of the `fakes` source teach;
+removing them strengthened the shortcut. The right direction
+is the opposite: keep/reinforce short true items in training
+or bring genuine short true news from another source. Nothing
+was pushed to GitHub; the validation artifacts stayed in /tmp
+(volatile).
 
-**Dois bugs encontrados e corrigidos nesta rodada:**
-(1) `train_unified.py` chamava `save_model(pipe, caminho)` —
-a assinatura é `save_model(pipe, metrics, out_dir)`, e o
-modelo não foi salvo na primeira tentativa (métricas
-computadas, artefato perdido); (2) `tune_unified.py` original
-usava CV 3-fold que não terminava nesta VM — trocado por
-avaliação direta de C nos testes, com salvamento incremental
-dos resultados (um restart não apaga o que já mediu; o
-restart de 00:22 interrompeu a primeira cadeia no meio).
+**Two bugs found and fixed in this round:**
+(1) `train_unified.py` called `save_model(pipe, caminho)` —
+the signature is `save_model(pipe, metrics, out_dir)`, and the
+model was not saved on the first attempt (metrics computed,
+artifact lost); (2) the original `tune_unified.py` used 3-fold
+CV that would not finish on this VM — replaced by direct
+evaluation of C on the tests, with incremental saving of
+results (a restart does not erase what was already measured;
+the 00:22 restart interrupted the first chain midway).
