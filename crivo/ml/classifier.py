@@ -57,11 +57,19 @@ CANDIDATES = {
         C=1.0, max_iter=1000, class_weight="balanced", solver="lbfgs"
     ),
     "nb": lambda: MultinomialNB(alpha=0.1),
+    # TF-IDF de palavras + caracteres (char_wb 3-5). Medido em
+    # 17/11: venceu a logreg pura nos dois terrenos — v1: F1
+    # 0,9708 → 0,9736; v2: 0,7676 → 0,7754 (misto) e 0,8841 →
+    # 0,9162 (artigos). O char ajuda texto ruidoso de rede social
+    # sem prejudicar o artigo limpo.
+    "logreg_char": lambda: build_char_pipeline(),
 }
 
 
 def build_pipeline(model_name: str) -> Pipeline:
     _require_sklearn()
+    if model_name == "logreg_char":
+        return build_char_pipeline()
     if model_name not in CANDIDATES:
         raise ValueError(
             f"modelo desconhecido: {model_name}. Use: {sorted(CANDIDATES)}"
@@ -76,6 +84,41 @@ def build_pipeline(model_name: str) -> Pipeline:
             stop_words=sorted(STOPWORDS_PT),
         )),
         ("clf", CANDIDATES[model_name]()),
+    ])
+
+
+def build_char_pipeline() -> Pipeline:
+    """TF-IDF de palavras + TF-IDF de caracteres (char_wb 3-5) +
+    regressão logística. Caractere ajuda onde palavra falha:
+    texto de rede social com erro de digitação, abreviação e
+    gíria. Medido em 17/11 (experimento de mistura): no treino
+    unificado, o char elevou o F1 nos artigos de 0,9197 para
+    0,9485 e no teste misto de 0,7754 para 0,7822."""
+    _require_sklearn()
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import FeatureUnion
+    word = TfidfVectorizer(
+        lowercase=True,
+        ngram_range=(1, 2),
+        max_features=50_000,
+        min_df=2,
+        sublinear_tf=True,
+        stop_words=sorted(STOPWORDS_PT),
+    )
+    char = TfidfVectorizer(
+        lowercase=True,
+        analyzer="char_wb",
+        ngram_range=(3, 5),
+        max_features=30_000,
+        min_df=2,
+        sublinear_tf=True,
+    )
+    return Pipeline([
+        ("features", FeatureUnion([("word", word), ("char", char)])),
+        ("clf", LogisticRegression(
+            C=1.0, max_iter=1000, class_weight="balanced",
+            solver="lbfgs")),
     ])
 
 
