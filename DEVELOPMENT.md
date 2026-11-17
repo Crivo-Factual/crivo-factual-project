@@ -492,6 +492,21 @@ or bring genuine short true news from another source. Nothing
 was pushed to GitHub; the validation artifacts stayed in /tmp
 (volatile).
 
+**Reinforcing short true items — tested and REJECTED
+17/11/2026.** The opposite hypothesis to cleaning: duplicating
+short true items in training would teach the pattern. Measured
+on the unified model (same config, fixed tests): A (×2 true
+items <500 chars) mixed 0.7924 → 0.7871; B (×3) → 0.7857; C
+(×2 `true` source) → 0.7822. The false-positive rate on the
+`true` source fell (66.5% → 55–58%), but false recall fell
+more than true recall gained — duplicating shifts the class
+prior, it does not teach the model to tell a question from a
+news item. Both data levers (removing and duplicating) failed
+in opposite directions; the path of changing how many short
+true examples there are is closed. What remains: (1) genuine
+short true news from another source; (2) BERTimbau-large /
+more epochs / larger max_len; (3) accepting the ceiling.
+
 **Two bugs found and fixed in this round:**
 (1) `train_unified.py` called `save_model(pipe, caminho)` —
 the signature is `save_model(pipe, metrics, out_dir)`, and the
