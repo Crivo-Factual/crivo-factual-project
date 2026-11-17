@@ -9,10 +9,10 @@ tags:
 - fact-checking
 ---
 
-# Crivo Factual — Classificadores de veracidade (v1 + v2)
+# Crivo Factual — Classificadores de veracidade (v1 + v2 + unificado)
 
-Dois classificadores que estimam a probabilidade de um texto em
-português brasileiro ser falso, com um roteador por tamanho:
+Três classificadores que estimam a probabilidade de um texto em
+português brasileiro ser falso:
 
 - **v1 — especialista em artigos.** Treinada no
   [Fake.Br Corpus](https://github.com/roneysco/Fake.br-Corpus)
@@ -24,24 +24,30 @@ português brasileiro ser falso, com um roteador por tamanho:
   et al., 2026) — 36.594 itens canônicos: notícias, tweets,
   WhatsApp, COVID-19. Opina sobre texto curto, mas com viés de
   falso positivo.
+- **unificado — um só modelo para qualquer tamanho.** Treinado
+  em Fake.Br + FakenewsBR (35.035 itens). Artigos F1 0,9646,
+  misto F1 0,7924 — o melhor modelo único do projeto.
 
 Modelo: TF-IDF (unigramas + bigramas, sublinear, 50k features,
-stopwords em português) + regressão logística. O artefato é o
-pipeline inteiro (vetorizador + modelo), salvo com joblib.
-`model_v1.joblib` e `model_v2.joblib` são os dois artefatos;
-`model.joblib` (v1) é mantido por compatibilidade.
+stopwords em português) + TF-IDF de char n-grams (3–5, 30k) +
+regressão logística (C=4,0 no unificado; C=1,0 nas v1/v2). O
+artefato é o pipeline inteiro (vetorizador + modelo), salvo com
+joblib. `model_v1.joblib`, `model_v2.joblib` e
+`model_unified.joblib` são os três artefatos; `model.joblib`
+(v1) é mantido por compatibilidade.
 
 ## Resultados medidos
 
-| Métrica | v1 (artigos, n=1440) | v2 (misto, n=7319) | v2 nos artigos da v1 |
-|---|---|---|---|
-| Acurácia | 0,9708 | 0,8086 | 0,8854 |
-| F1-macro | 0,9708 | 0,7676 | 0,8841 |
-| ROC-AUC | 0,9960 | 0,8575 | 0,9888 |
-| Brier | 0,0418 | 0,1444 | 0,0926 |
+| Métrica | v1 (artigos, n=1440) | v2 (misto, n=7319) | v2 nos artigos da v1 | unificado (artigos) | unificado (misto) |
+|---|---|---|---|---|---|
+| Acurácia | 0,9708 | 0,8086 | 0,8854 | 0,9646 | 0,8386 |
+| F1-macro | 0,9708 | 0,7676 | 0,8841 | 0,9646 | 0,7924 |
+| ROC-AUC | 0,9960 | 0,8575 | 0,9888 | — | — |
+| Brier | 0,0418 | 0,1444 | 0,0926 | — | — |
 
 A comparação v2 × v1 nos artigos é limpa: os 1.440 itens do
 teste da v1 foram excluídos do treino da v2 por fingerprint.
+O unificado usa os mesmos splits (seed 42) e os mesmos testes.
 
 ## Uso (roteador)
 
@@ -56,11 +62,26 @@ def suspicion(text):
     return float(v2.predict_proba([text])[0][1]), "v2"
 ```
 
+## Uso (unificado — um só modelo, qualquer tamanho)
+
+```python
+import joblib
+uni = joblib.load("model_unified.joblib")
+
+def suspicion(text):
+    return float(uni.predict_proba([text])[0][1])
+```
+
 ## Limites — leia antes de usar
 
 - **A v2 não substitui a v1.** Em artigos completos a v1 continua
   melhor (F1 0,9708 contra 0,8841). A v2 vale pela amplitude
   (tweets, WhatsApp, COVID) e pelo texto curto.
+- **O unificado é o melhor modelo único, mas não bate 0,95 no
+  misto.** Artigos 0,9646 (meta batida), misto 0,7924. O teto
+  medido do linear no misto é 0,8183 — mesmo sem as duas piores
+  fontes. O salto para 0,95 no misto precisa de um transformer
+  (BERTimbau) — ver `crivo/ml/README.md`.
 - **Falso positivo por fonte (v2).** O score depende da fonte:
   5% em notícias políticas, 9% em artigos do Fake.Br, 22% em
   WhatsApp, 36% em COVID, 53% em tweets do MuMiN, 58% nas
